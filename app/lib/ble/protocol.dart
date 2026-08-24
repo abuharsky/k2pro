@@ -746,9 +746,16 @@ Map<DateTime, int> parseCupsHistory(Uint8List p, {DateTime? today}) {
 }
 
 class DeviceInfo {
-  const DeviceInfo(this.versionA, this.versionB, this.model);
-  final String versionA;
-  final String versionB;
+  const DeviceInfo(this.hardware, this.firmware, this.model);
+
+  /// Версия железа. В ответе 0x08 идёт первой — так же её читает оригинал:
+  /// первая строка ложится в поле, которое экран версий подписывает
+  /// «hardwareVersion», вторая — в «firmwareVersion».
+  final String hardware;
+
+  /// Версия прошивки. Её и показываем человеку: железо он всё равно не меняет.
+  final String firmware;
+
   final String model;
 }
 

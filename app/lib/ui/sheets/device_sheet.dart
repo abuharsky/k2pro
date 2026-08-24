@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../ble/k2_device.dart';
+import '../../ble/transport.dart';
 import '../../l10n/app_l10n.dart';
 import '../../l10n/l10n_ext.dart';
 import '../../model/recipe.dart';
@@ -35,9 +36,18 @@ Future<DeviceAction?> showDeviceSheet(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              info == null
-                  ? t.notConnected
-                  : '${info.model} · ${t.firmware} ${info.versionA}',
+              // Подпись — про связь, а не про то, успела ли доехать анкета
+              // устройства. Раньше здесь стояло `info == null`, и пока машина
+              // не ответила на 0x08 — а это доли секунды после подключения, но
+              // и вечность, если ответ потерялся, — шторка честно подключённой
+              // машины писала «нет связи».
+              switch (device.link) {
+                LinkState.disconnected => t.notConnected,
+                LinkState.connecting => t.connecting,
+                LinkState.connected when info == null => t.connected,
+                LinkState.connected =>
+                  '${info!.model} · ${t.firmware} ${info.firmware}',
+              },
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: K.textDim, fontSize: 12),

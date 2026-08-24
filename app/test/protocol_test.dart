@@ -275,8 +275,8 @@ void main() {
           ...m.codeUnits,
         ]),
       );
-      expect(info.versionA, a);
-      expect(info.versionB, b);
+      expect(info.hardware, a);
+      expect(info.firmware, b);
       expect(info.model, m);
     });
 
