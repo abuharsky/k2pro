@@ -108,6 +108,56 @@ void main() {
     expect(fresh.rangesFromDevice, isFalse);
   });
 
+  testWidgets('оборванная связь восстанавливается сама', (tester) async {
+    final mock = MockTransport();
+    await withApp(tester, (device) async {
+      await tester.tap(find.text('Connect'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.textContaining(kNamePrefix));
+      await settle(tester);
+      expect(device.isConnected, isTrue);
+
+      // Машину унесли: обрыв не по нашей воле.
+      mock.dropLink();
+      await tester.pump();
+      expect(device.isConnected, isFalse);
+      // Но намерение остаётся: к этой машине мы подключались и не отказывались.
+      expect(device.connectedId, isNotNull);
+
+      // Первая попытка идёт через kReconnectFirstDelay, плюс время самого
+      // подключения в симуляторе.
+      await tester.pump(kReconnectFirstDelay);
+      await tester.pump(const Duration(seconds: 1));
+      expect(device.isConnected, isTrue);
+      // Рукопожатие после переподключения идёт заново — дать ему добежать,
+      // иначе тест закончится с висящими таймерами записи.
+      await settle(tester);
+    }, transport: mock);
+  });
+
+  testWidgets('после ручного отключения никто не переподключается', (
+    tester,
+  ) async {
+    final mock = MockTransport();
+    await withApp(tester, (device) async {
+      await tester.tap(find.text('Connect'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.textContaining(kNamePrefix));
+      await settle(tester);
+      expect(device.isConnected, isTrue);
+
+      await device.disconnect();
+      await tester.pump();
+      expect(device.connectedId, isNull);
+
+      await tester.pump(kReconnectFirstDelay * 4);
+      await tester.pump(const Duration(seconds: 1));
+      expect(device.isConnected, isFalse);
+    }, transport: mock);
+  });
+
   test('без кэша диапазоны всё равно есть — иначе нечем ограничить правку', () {
     final d = K2Device(MockTransport());
     addTearDown(d.dispose);

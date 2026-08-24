@@ -157,6 +157,7 @@ class K2Device extends ChangeNotifier {
   Future<void> stopScan() => _transport.stopScan();
 
   Future<void> connect(String id) async {
+    _cancelReconnect();
     lastError = null;
     try {
       await _transport.connect(id);
@@ -169,8 +170,52 @@ class K2Device extends ChangeNotifier {
   }
 
   Future<void> disconnect() async {
-    await _transport.disconnect();
+    // Сначала снять намерение, потом рвать: иначе обрыв, который мы же и
+    // устроили, поднимет переподключение.
     connectedId = null;
+    _cancelReconnect();
+    await _transport.disconnect();
+  }
+
+  // ---- переподключение --------------------------------------------------
+
+  /// Ждущая попытка восстановить связь. null — не восстанавливаем.
+  Timer? _reconnect;
+
+  /// Номер следующей попытки: по нему растёт пауза.
+  int _reconnectAttempt = 0;
+
+  /// Связь оборвалась не по нашей воле — восстанавливать её должны мы.
+  ///
+  /// Пока этого не было, приложение после любого обрыва молчало до тех пор,
+  /// пока человек не переподключится руками, — а обрыв посреди цикла как раз
+  /// тот момент, когда смотреть на экран нужнее всего. Автоподключение на
+  /// старте тут не помогало: оно срабатывает ровно один раз за запуск.
+  ///
+  /// Условие одно: [connectedId] не пуст, то есть мы к этой машине
+  /// подключались и сами от неё не отказывались.
+  void _scheduleReconnect() {
+    final id = connectedId;
+    if (id == null || _reconnect != null) return;
+    final wait = reconnectDelay(_reconnectAttempt);
+    _log('переподключение через ${wait.inSeconds} с (попытка ${_reconnectAttempt + 1})');
+    _reconnect = Timer(wait, () async {
+      _reconnect = null;
+      if (connectedId == null) return;
+      _reconnectAttempt++;
+      try {
+        await _transport.connect(id);
+      } catch (e) {
+        _log('переподключение не вышло: $e');
+        _scheduleReconnect();
+      }
+    });
+  }
+
+  void _cancelReconnect() {
+    _reconnect?.cancel();
+    _reconnect = null;
+    _reconnectAttempt = 0;
   }
 
   void _onLink(LinkState s) {
@@ -178,6 +223,7 @@ class K2Device extends ChangeNotifier {
     link = s;
     if (s == LinkState.connected) {
       _linkedAt = DateTime.now();
+      _reconnectAttempt = 0;
       unawaited(_handshake());
     } else {
       _decoder.reset();
@@ -193,6 +239,7 @@ class K2Device extends ChangeNotifier {
       progress = BrewProgress.idle;
       _ticker?.cancel();
       _ticker = null;
+      if (s == LinkState.disconnected) _scheduleReconnect();
     }
     notifyListeners();
   }
@@ -664,6 +711,8 @@ class K2Device extends ChangeNotifier {
 
     _scheduleDebounce?.cancel();
     _scheduleDebounce = null;
+    _reconnect?.cancel();
+    _reconnect = null;
     if (immediate) {
       unawaited(_pushSchedule());
       return;

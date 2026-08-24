@@ -94,6 +94,16 @@ class MockTransport implements K2Transport {
     _setLink(LinkState.disconnected);
   }
 
+  /// Оборвать связь так, будто машину унесли, — без ведома приложения.
+  ///
+  /// Отличается от [disconnect] намерением: там рвём мы, здесь эфир. Проверять
+  /// переподключение больше нечем.
+  void dropLink() {
+    _tick?.cancel();
+    _tick = null;
+    _setLink(LinkState.disconnected);
+  }
+
   @override
   Future<void> write(Uint8List frame) async {
     sent.add(Uint8List.fromList(frame));
