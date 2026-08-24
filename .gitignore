@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Build output
+build/
+app/build/
+app/ios/build/
+
+# Golden-diff artifacts
+failures/
+
+# Source art packs and layer exports — kept outside the repo
+ikape_full_asset_pack/
+export/

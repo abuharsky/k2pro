@@ -1,0 +1,17 @@
+{
+  "images" : [
+    {
+      "idiom" : "universal",
+      "filename" : "LaunchBackground-phone.png"
+    },
+    {
+      "idiom" : "universal",
+      "filename" : "LaunchBackground-pad.png",
+      "width-class" : "regular"
+    }
+  ],
+  "info" : {
+    "version" : 1,
+    "author" : "xcode"
+  }
+}
