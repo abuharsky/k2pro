@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import '../ble/k2_device.dart';
 import '../ble/protocol.dart';
 import '../ble/trace.dart';
-import '../ble/transport.dart';
 import '../l10n/app_l10n.dart';
 import '../l10n/l10n_ext.dart';
 import '../model/brew_phase.dart';
@@ -511,7 +510,7 @@ class _HomePageState extends State<HomePage> {
                     child: TopBar(
                       name: p.deviceName,
                       connected: d.isConnected,
-                      connecting: d.link == LinkState.connecting,
+                      connecting: d.isSeeking,
                       asleep: d.isAsleep,
                       status: status,
                       onMenu: () => _openDeviceMenu(context),
@@ -735,7 +734,7 @@ class _HomePageState extends State<HomePage> {
   /// Главная кнопка: подключиться, снять таймер, старт, стоп или «готово».
   BarCta _cta(AppL10n t, K2Device d, WorkMode mode, bool armed) {
     if (!d.isConnected) {
-      final busy = d.link == LinkState.connecting;
+      final busy = d.isSeeking;
       return BarCta(
         kind: CtaKind.connect,
         label: t.connect,

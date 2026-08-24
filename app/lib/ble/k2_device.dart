@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../model/brew_phase.dart';
 import '../model/recipe.dart';
 import 'protocol.dart';
+import 'session.dart';
 import 'trace.dart';
 import 'transport.dart';
 
@@ -119,7 +120,13 @@ class K2Device extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool get isConnected => link == LinkState.connected;
+  /// Машина на линии. Спрашивать надо у сеанса, а не у транспорта: связь может
+  /// стоять, а сеанс уже считать её мёртвой — и наоборот.
+  bool get isConnected => _session.state.isLinked;
+
+  /// Связи нет, но мы её добиваемся — первое подключение или переподключение.
+  /// Для человека это одно и то же ожидание.
+  bool get isSeeking => _session.state.isSeeking;
   bool get isBusy => status?.state.isBusy ?? false;
 
   /// Единая точка времени для UI и детерминированных тестов будильника.
@@ -132,11 +139,13 @@ class K2Device extends ChangeNotifier {
   /// экране — это состояние 0 из той же телеметрии, то есть признак живой
   /// машины, а не спящей. Пока кадры не идут, у него на экране остаётся
   /// последнее, что пришло.
-  bool get isAsleep {
-    if (!isConnected) return false;
-    // Пока телеметрии не было ни одной, отсчёт идёт от момента связи: живая
-    // машина отзывается за секунду, так что за отведённые пять её молчание
-    // успевает стать фактом, а не задержкой подключения.
+  bool get isAsleep => _session.state == SessionState.dormant;
+
+  /// Телеметрии нет дольше отведённого. Отсчёт от последнего кадра, а до
+  /// первого — от момента связи: живая машина отзывается за секунду, так что
+  /// за отведённые пять её молчание успевает стать фактом, а не задержкой
+  /// подключения.
+  bool get _silent {
     final t = _lastTelemetryAt ?? _linkedAt;
     if (t == null) return true;
     return _now().difference(t) > kTelemetrySilence;
@@ -145,22 +154,53 @@ class K2Device extends ChangeNotifier {
   /// Когда установилась связь. Точка отсчёта молчания до первой телеметрии.
   DateTime? _linkedAt;
 
-  /// Номер текущей связи. Растёт на каждой смене состояния линии.
-  ///
-  /// Запрос, заведённый в одной связи, в следующей бессмыслен: машина его уже
-  /// не помнит, а очередь он держит. Без этого счётчика рукопожатие переживало
-  /// обрыв — обрыв ронял ожидание ответа, но не сам цикл, и тот спокойно шёл
-  /// к следующей команде. Каждое переподключение добавляло в очередь ещё
-  /// восемь запросов поверх недоеденных прежних; в живой трассе три подряд
-  /// таких цикла заняли линию на минуту, и тап «пуск» ждал её двадцать две
-  /// секунды.
-  int _linkGen = 0;
+  // ---- сеанс ------------------------------------------------------------
 
-  /// Прошлое значение [isAsleep] — чтобы заметить переход и перерисоваться.
-  ///
-  /// Само по себе оно не всплывёт: засыпание видно только по молчанию, а на
-  /// молчание [_recompute] не реагирует — без телеметрии ему нечего считать.
-  bool _asleep = false;
+  /// Где сейчас связь. Единственный источник правды про неё: см. [Session].
+  late final Session _session = Session(onEnter: _onSession, log: _log);
+
+  SessionState get sessionState => _session.state;
+
+  int get _linkGen => _session.generation;
+
+  /// Побочные действия перехода. Всё, что раньше висело на присваиваниях
+  /// в пяти разных местах, собрано здесь.
+  void _onSession(SessionState from, SessionState to) {
+    if (from.isLinked && !to.isLinked) _dropLinkState();
+    switch (to) {
+      case SessionState.handshaking:
+        _linkedAt = _now();
+        _reconnectAttempt = 0;
+        unawaited(_handshake());
+      case SessionState.reconnecting:
+        _armReconnect();
+      case SessionState.ready:
+        _reconnectAttempt = 0;
+      case SessionState.idle:
+        _cancelReconnect();
+        connectedId = null;
+      case SessionState.connecting:
+      case SessionState.dormant:
+        break;
+    }
+    notifyListeners();
+  }
+
+  /// Забыть всё, что относилось к упавшей линии.
+  void _dropLinkState() {
+    _decoder.reset();
+    _fragments.reset();
+    for (final c in _waiters.values) {
+      if (!c.isCompleted) c.completeError(StateError('disconnected'));
+    }
+    _waiters.clear();
+    _lastTelemetryAt = null;
+    _linkedAt = null;
+    _phases.reset();
+    progress = BrewProgress.idle;
+    _ticker?.cancel();
+    _ticker = null;
+  }
 
   // ---- подключение ------------------------------------------------------
 
@@ -175,11 +215,13 @@ class K2Device extends ChangeNotifier {
   Future<void> connect(String id) async {
     _cancelReconnect();
     lastError = null;
+    connectedId = id;
+    _session.fire(SessionEvent.connectRequested);
     try {
       await _transport.connect(id);
-      connectedId = id;
     } catch (e) {
       lastError = '$e';
+      _session.fire(SessionEvent.connectFailed);
       notifyListeners();
       rethrow;
     }
@@ -188,8 +230,7 @@ class K2Device extends ChangeNotifier {
   Future<void> disconnect() async {
     // Сначала снять намерение, потом рвать: иначе обрыв, который мы же и
     // устроили, поднимет переподключение.
-    connectedId = null;
-    _cancelReconnect();
+    _session.fire(SessionEvent.disconnectRequested);
     await _transport.disconnect();
   }
 
@@ -208,9 +249,9 @@ class K2Device extends ChangeNotifier {
   /// тот момент, когда смотреть на экран нужнее всего. Автоподключение на
   /// старте тут не помогало: оно срабатывает ровно один раз за запуск.
   ///
-  /// Условие одно: [connectedId] не пуст, то есть мы к этой машине
-  /// подключались и сами от неё не отказывались.
-  void _scheduleReconnect() {
+  /// Само решение «пора восстанавливать» принимает не этот метод, а таблица
+  /// переходов: сюда попадают, только войдя в [SessionState.reconnecting].
+  void _armReconnect() {
     final id = connectedId;
     if (id == null || _reconnect != null) return;
     final wait = reconnectDelay(_reconnectAttempt);
@@ -219,13 +260,16 @@ class K2Device extends ChangeNotifier {
     );
     _reconnect = Timer(wait, () async {
       _reconnect = null;
-      if (connectedId == null) return;
+      if (_session.state != SessionState.reconnecting) return;
       _reconnectAttempt++;
+      _session.fire(SessionEvent.reconnectDue);
       try {
         await _transport.connect(id);
       } catch (e) {
         _log('переподключение не вышло: $e');
-        _scheduleReconnect();
+        // Обратно в ожидание: следующая пауза будет вдвое длиннее. Таймер
+        // заведёт вход в reconnecting, как и в первый раз.
+        _session.fire(SessionEvent.reconnectFailed);
       }
     });
   }
@@ -236,30 +280,17 @@ class K2Device extends ChangeNotifier {
     _reconnectAttempt = 0;
   }
 
+  /// Транспорт сказал, что стало с линией. Дальше решает таблица переходов.
   void _onLink(LinkState s) {
     _log('link ${s.name}');
     link = s;
-    _linkGen++;
-    if (s == LinkState.connected) {
-      _linkedAt = _now();
-      _reconnectAttempt = 0;
-      unawaited(_handshake());
-    } else {
-      _decoder.reset();
-      _fragments.reset();
-      for (final c in _waiters.values) {
-        if (!c.isCompleted) c.completeError(StateError('disconnected'));
-      }
-      _waiters.clear();
-      _lastTelemetryAt = null;
-      _linkedAt = null;
-      _asleep = false;
-      _handshakeDone = false;
-      _phases.reset();
-      progress = BrewProgress.idle;
-      _ticker?.cancel();
-      _ticker = null;
-      if (s == LinkState.disconnected) _scheduleReconnect();
+    switch (s) {
+      case LinkState.connected:
+        _session.fire(SessionEvent.linkUp);
+      case LinkState.disconnected:
+        _session.fire(SessionEvent.linkDown);
+      case LinkState.connecting:
+        break;
     }
     notifyListeners();
   }
@@ -289,7 +320,7 @@ class K2Device extends ChangeNotifier {
     if (await _request(cmdSetTime(), Cmd.setTime, tries: 2) == null) {
       if (gen != _linkGen) return;
       _log('машина не отозвалась на 0x04 — опрос отложен до её пробуждения');
-      _handshakeDone = false;
+      _session.fire(SessionEvent.probeSilent);
       return;
     }
     if (gen != _linkGen) return;
@@ -305,11 +336,8 @@ class K2Device extends ChangeNotifier {
     // сразу, а не через секунды; молчание же сразу видно в трассе.
     await _request(cmdGetDeviceState(), Cmd.deviceState);
     if (gen != _linkGen) return;
-    _handshakeDone = true;
+    _session.fire(SessionEvent.handshakeDone);
   }
-
-  /// Успел ли опрос пройти целиком. Пока нет — ждём случая повторить.
-  bool _handshakeDone = false;
 
   // ---- очередь записи ---------------------------------------------------
 
@@ -500,6 +528,9 @@ class K2Device extends ChangeNotifier {
           final was = status;
           status = s;
           _lastTelemetryAt = _now();
+          // Живой кадр — единственный признак, что машина проснулась: она сама
+          // о пробуждении не сообщает, а на запросы во сне не отвечает.
+          _session.fire(SessionEvent.telemetry);
           lastStateRaw = _hex(p);
           // Телеметрия идёт раз в секунду; в трассе она нужна вся — по ней
           // видно, сколько машина грела и на какой температуре сорвалась.
@@ -658,17 +689,10 @@ class K2Device extends ChangeNotifier {
     _watchSilence();
   }
 
-  /// Заметить, что машина уснула или проснулась.
+  /// Заметить, что машина уснула. Пробуждение ловится по самому кадру
+  /// телеметрии — см. [SessionEvent.telemetry].
   void _watchSilence() {
-    final now = isAsleep;
-    if (now == _asleep) return;
-    _asleep = now;
-    _log(now ? 'телеметрия смолкла — машина спит' : 'телеметрия пошла');
-    // Заговорила — значит, теперь ответит и на запросы. Опрос, который мы
-    // бросили на первом же молчании, доводим здесь: иначе связь есть, а
-    // диапазонов, версии и счётчиков так и нет до перезапуска приложения.
-    if (!now && !_handshakeDone) unawaited(_handshake());
-    notifyListeners();
+    if (_silent) _session.fire(SessionEvent.silenceElapsed);
   }
 
   /// Гасит будильник, когда его время прошло.

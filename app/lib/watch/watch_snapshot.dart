@@ -1,6 +1,5 @@
 import '../ble/k2_device.dart';
 import '../ble/protocol.dart';
-import '../ble/transport.dart';
 import '../l10n/app_l10n.dart';
 import '../l10n/l10n_ext.dart';
 import '../model/pipeline.dart';
@@ -212,7 +211,7 @@ List<Map<String, Object?>> _devices(AppL10n t, K2Device d, Prefs prefs) {
       'known': true,
       'status': here
           ? t.deviceConnected
-          : d.link == LinkState.connecting
+          : d.isSeeking
           ? t.connecting
           : d.discovered.any((e) => e.id == mine)
           ? t.deviceAvailable
