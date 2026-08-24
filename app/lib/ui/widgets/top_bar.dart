@@ -36,7 +36,7 @@ class TopBar extends StatelessWidget {
   final VoidCallback onName;
 
   /// Высота шапки: от неё считается верх зоны машины.
-  static const double height = 42;
+  static const double height = 44;
 
   @override
   Widget build(BuildContext context) {
@@ -55,11 +55,15 @@ class TopBar extends StatelessWidget {
       height: height,
       child: Row(
         children: [
-          RoundIconButton(icon: KIcon.menu, onTap: onMenu),
+          RoundIconButton(
+            icon: KIcon.menu,
+            onTap: onMenu,
+            semanticLabel: context.t.openDeviceSettings,
+          ),
           Expanded(
-            child: GestureDetector(
+            child: KTap(
               onTap: onName,
-              behavior: HitTestBehavior.opaque,
+              semanticLabel: context.t.openDeviceSettings,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -105,6 +109,7 @@ class TopBar extends StatelessWidget {
           RoundIconButton(
             icon: KIcon.bluetooth,
             onTap: onLink,
+            semanticLabel: context.t.openDevices,
             color: connected || connecting ? K.btBlue : K.iconDim,
             glow: connected ? K.btBlue.withValues(alpha: 0.18) : null,
             badge: connected ? K.btBlue : null,

@@ -15,6 +15,7 @@ class BarCta {
     required this.label,
     required this.mode,
     this.busy = false,
+    this.slideToConfirm = false,
     this.onTap,
   });
 
@@ -26,6 +27,9 @@ class BarCta {
 
   /// Команда ушла, ответа ещё нет.
   final bool busy;
+
+  /// Потенциально опасный запуск с нагревом требует направленного жеста.
+  final bool slideToConfirm;
 
   final VoidCallback? onTap;
 }
@@ -63,14 +67,84 @@ class BottomBar extends StatelessWidget {
 }
 
 /// Главная кнопка: заливка режима в покое, красная в работе, зелёная в конце.
-class _Cta extends StatelessWidget {
+class _Cta extends StatefulWidget {
   const _Cta({required this.cta});
 
   final BarCta cta;
 
   @override
+  State<_Cta> createState() => _CtaState();
+}
+
+class _CtaState extends State<_Cta> with SingleTickerProviderStateMixin {
+  late final AnimationController _slide = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+  );
+
+  bool _triggered = false;
+
+  @override
+  void didUpdateWidget(_Cta oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.cta.kind != widget.cta.kind ||
+        oldWidget.cta.slideToConfirm != widget.cta.slideToConfirm ||
+        oldWidget.cta.busy != widget.cta.busy) {
+      _resetSlide();
+    }
+  }
+
+  @override
+  void dispose() {
+    _slide.dispose();
+    super.dispose();
+  }
+
+  void _beginSlide(DragStartDetails _) {
+    if (widget.cta.onTap == null) return;
+    // Каждый жест начинается от левого края: иначе доехавший и не сброшенный
+    // ползунок превратил бы случайный микро-свайп в пуск нагревателя.
+    _resetSlide();
+    HapticFeedback.selectionClick();
+  }
+
+  void _updateSlide(DragUpdateDetails details, double travel) {
+    if (widget.cta.onTap == null || travel <= 0) return;
+    _slide.value = (_slide.value + details.delta.dx / travel).clamp(0.0, 1.0);
+  }
+
+  void _endSlide(DragEndDetails _) {
+    if (_slide.value < 0.82 || widget.cta.onTap == null) {
+      _slide.reverse();
+      return;
+    }
+    if (_triggered) return;
+    _triggered = true;
+    _slide.animateTo(1, duration: const Duration(milliseconds: 80));
+    HapticFeedback.mediumImpact();
+    widget.cta.onTap!();
+    // Пуск могли отменить в диалоге — тогда вид кнопки не меняется и ползунок
+    // остался бы доехавшим, без подписи. Возвращаем его сами.
+    Future<void>.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted || !_triggered) return;
+      _triggered = false;
+      _slide.reverse();
+    });
+  }
+
+  void _cancelSlide() {
+    if (!_triggered) _slide.reverse();
+  }
+
+  void _resetSlide() {
+    _triggered = false;
+    _slide.stop();
+    _slide.value = 0;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final c = cta;
+    final c = widget.cta;
     final style = ModeStyle.of(c.mode);
     final enabled = c.onTap != null;
     final red = c.kind == CtaKind.stop || c.kind == CtaKind.cancelAlarm;
@@ -83,73 +157,145 @@ class _Cta extends StatelessWidget {
       _ => (style.gradient, style.onColor, style.glow),
     };
 
-    return KTap(
-      onTap: _tap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        height: BottomBar.cell,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: enabled
-                ? colors
-                : [
-                    colors.first.withValues(alpha: 0.35),
-                    colors.last.withValues(alpha: 0.35),
-                  ],
-          ),
-          borderRadius: BorderRadius.circular(K.rPill),
-          border: red ? Border.all(color: const Color(0x2EFFFFFF)) : null,
-          boxShadow: enabled
-              ? [
-                  BoxShadow(
-                    color: glow,
-                    blurRadius: red ? 30 : 28,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-              : null,
-        ),
-        child: Stack(
+    Widget surface(double slideProgress, {double slideTravel = 0}) =>
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          height: BottomBar.cell,
+          clipBehavior: Clip.antiAlias,
           alignment: Alignment.center,
-          children: [
-            // Блик по верхней кромке: без него залитая красным кнопка
-            // выглядит плоской наклейкой.
-            if (red && enabled)
-              const Positioned(
-                left: 1,
-                right: 1,
-                top: 1,
-                height: 1,
-                child: IgnorePointer(
-                  child: ColoredBox(color: Color(0x2EFFFFFF)),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: enabled
+                  ? colors
+                  : [
+                      colors.first.withValues(alpha: 0.35),
+                      colors.last.withValues(alpha: 0.35),
+                    ],
+            ),
+            borderRadius: BorderRadius.circular(K.rPill),
+            border: red || c.slideToConfirm
+                ? Border.all(color: const Color(0x2EFFFFFF))
+                : null,
+            boxShadow: enabled
+                ? [
+                    BoxShadow(
+                      color: glow,
+                      blurRadius: red ? 30 : 28,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Блик по верхней кромке: без него залитая красным кнопка
+              // выглядит плоской наклейкой.
+              if (red && enabled)
+                const Positioned(
+                  left: 1,
+                  right: 1,
+                  top: 1,
+                  height: 1,
+                  child: IgnorePointer(
+                    child: ColoredBox(color: Color(0x2EFFFFFF)),
+                  ),
                 ),
-              ),
-            c.busy
-                ? KSpinner(color: fg)
-                // Значков на кнопке нет: подпись и цвет уже говорят всё.
-                : FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
+              if (c.slideToConfirm && !c.busy)
+                Positioned(
+                  left: 52,
+                  right: 8,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: (1 - slideProgress * 1.5).clamp(0.0, 1.0),
                       child: Text(
                         c.label,
                         maxLines: 1,
-                        style: K.ctaLabel.copyWith(color: fg),
+                        textAlign: TextAlign.center,
+                        style: K.ctaLabel.copyWith(fontSize: 15, color: fg),
                       ),
                     ),
                   ),
-          ],
-        ),
-      ),
+                ),
+              if (c.slideToConfirm && !c.busy)
+                Positioned(
+                  left: 4 + slideTravel * slideProgress,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xEBFFFFFF),
+                      shape: BoxShape.circle,
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x33000000),
+                          blurRadius: 8,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 27,
+                      color: colors.last,
+                    ),
+                  ),
+                ),
+              if (!c.slideToConfirm || c.busy)
+                c.busy
+                    ? KSpinner(color: fg)
+                    // Значков на кнопке нет: подпись и цвет уже говорят всё.
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            c.label,
+                            maxLines: 1,
+                            style: K.ctaLabel.copyWith(color: fg),
+                          ),
+                        ),
+                      ),
+            ],
+          ),
+        );
+
+    if (!c.slideToConfirm) {
+      return KTap(onTap: _tap, semanticLabel: c.label, child: surface(0));
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final travel = constraints.maxWidth - 52;
+        return Semantics(
+          button: true,
+          enabled: enabled,
+          label: c.label,
+          onTap: enabled ? _tap : null,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragStart: enabled ? _beginSlide : null,
+            onHorizontalDragUpdate: enabled
+                ? (details) => _updateSlide(details, travel)
+                : null,
+            onHorizontalDragEnd: enabled ? _endSlide : null,
+            onHorizontalDragCancel: enabled ? _cancelSlide : null,
+            child: AnimatedBuilder(
+              animation: _slide,
+              builder: (context, _) =>
+                  surface(_slide.value, slideTravel: travel),
+            ),
+          ),
+        );
+      },
     );
   }
 
   VoidCallback? get _tap {
-    final onTap = cta.onTap;
+    final onTap = widget.cta.onTap;
     if (onTap == null) return null;
     return () {
       HapticFeedback.selectionClick();

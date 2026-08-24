@@ -16,11 +16,12 @@ class RoundIconButton extends StatelessWidget {
     this.color = K.icon,
     this.border,
     this.glow,
-    this.size = 42,
+    this.size = 44,
     this.iconSize = 18,
     this.disabled = false,
     this.badge,
     this.child,
+    this.semanticLabel,
   });
 
   final KIcon icon;
@@ -46,6 +47,7 @@ class RoundIconButton extends StatelessWidget {
 
   /// Своё содержимое вместо значка (например, спираль с каплей).
   final Widget? child;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +58,7 @@ class RoundIconButton extends StatelessWidget {
       duration: const Duration(milliseconds: 220),
       child: KTap(
         onTap: disabled ? null : onTap,
+        semanticLabel: semanticLabel,
         child: SizedBox(
           width: size,
           height: size,

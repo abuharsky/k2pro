@@ -20,10 +20,10 @@ abstract final class K {
   static const text = Color(0xFFE8EAEE); // textPrimary
   static const textBright = Color(0xFFF2F4F7); // значения
   static const text2 = Color(0xFFC6CAD1); // textSecondary
-  static const textMuted = Color(0xFF8B919A);
-  static const textDim = Color(0xFF6E7681);
-  static const textDim2 = Color(0xFF7A8088);
-  static const textDisabled = Color(0xFF5C636D);
+  static const textMuted = Color(0xFFA0A7B1);
+  static const textDim = Color(0xFF89929E);
+  static const textDim2 = Color(0xFF929AA5);
+  static const textDisabled = Color(0xFF69727D);
 
   /// Совместимость со старыми вызовами: «третий» уровень текста.
   static const text3 = textDim;
@@ -126,7 +126,7 @@ abstract final class K {
 
   /// Микро-подпись капсом: ТАЙМЕР, НАГРЕВ, ЭКСТРАКЦИЯ…
   static const cap = TextStyle(
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.3,
     height: 1.1,
@@ -171,7 +171,7 @@ abstract final class K {
   );
 
   /// Пояснение под названием ряда.
-  static const rowDesc = TextStyle(fontSize: 11, height: 1.25, color: textDim);
+  static const rowDesc = TextStyle(fontSize: 12, height: 1.25, color: textDim);
 
   /// Значение в ряду-степпере.
   static const rowValue = TextStyle(
@@ -659,11 +659,13 @@ class KTap extends StatefulWidget {
     required this.child,
     required this.onTap,
     this.scale = 0.94,
+    this.semanticLabel,
   });
 
   final Widget child;
   final VoidCallback? onTap;
   final double scale;
+  final String? semanticLabel;
 
   @override
   State<KTap> createState() => _KTapState();
@@ -675,11 +677,12 @@ class _KTapState extends State<KTap> {
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onTap != null;
-    return GestureDetector(
+    final gesture = GestureDetector(
       onTapDown: enabled ? (_) => setState(() => _down = true) : null,
       onTapCancel: enabled ? () => setState(() => _down = false) : null,
       onTapUp: enabled ? (_) => setState(() => _down = false) : null,
       onTap: widget.onTap,
+      excludeFromSemantics: true,
       behavior: HitTestBehavior.opaque,
       child: AnimatedScale(
         scale: _down ? widget.scale : 1,
@@ -688,54 +691,80 @@ class _KTapState extends State<KTap> {
         child: widget.child,
       ),
     );
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: widget.semanticLabel,
+      onTap: widget.onTap,
+      child: widget.semanticLabel == null
+          ? gesture
+          : ExcludeSemantics(child: gesture),
+    );
   }
 }
 
 /// iOS-переключатель 50×30. Включённый — градиент режима «нагрев + пролив».
 class KSwitch extends StatelessWidget {
-  const KSwitch({super.key, required this.value, required this.onChanged});
+  const KSwitch({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.semanticLabel,
+  });
 
   final bool value;
   final ValueChanged<bool>? onChanged;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     final on = onChanged != null;
-    return GestureDetector(
+    return Semantics(
+      toggled: value,
+      enabled: on,
+      label: semanticLabel,
       onTap: on ? () => onChanged!(!value) : null,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-        width: 50,
-        height: 30,
-        padding: const EdgeInsets.all(2),
-        alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-        decoration: BoxDecoration(
-          gradient: value
-              ? LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: ModeStyle.both.gradient,
-                )
-              : null,
-          color: value ? null : const Color(0x1FFFFFFF),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: value ? Colors.transparent : K.glassBorder),
-        ),
-        child: Container(
-          width: 26,
-          height: 26,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Color(0x40000000),
-                blurRadius: 4,
-                offset: Offset(0, 1),
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          onTap: on ? () => onChanged!(!value) : null,
+          excludeFromSemantics: true,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            width: 50,
+            height: 30,
+            padding: const EdgeInsets.all(2),
+            alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+            decoration: BoxDecoration(
+              gradient: value
+                  ? LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: ModeStyle.both.gradient,
+                    )
+                  : null,
+              color: value ? null : const Color(0x1FFFFFFF),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: value ? Colors.transparent : K.glassBorder,
               ),
-            ],
+            ),
+            child: Container(
+              width: 26,
+              height: 26,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x40000000),
+                    blurRadius: 4,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -833,9 +862,9 @@ class KDialogButton extends StatelessWidget {
   final bool danger;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
+  Widget build(BuildContext context) => KTap(
     onTap: onTap,
-    behavior: HitTestBehavior.opaque,
+    semanticLabel: label,
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Text(

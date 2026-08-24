@@ -92,7 +92,7 @@ class PipelineStep {
 }
 
 /// Что делает единственная кнопка внизу.
-enum CtaKind { connect, start, stop, done, cancelAlarm }
+enum CtaKind { connect, start, stop, done, cancelAlarm, blocked }
 
 /// Готовый к показу цикл целиком.
 class PipelineModel {
@@ -102,6 +102,7 @@ class PipelineModel {
     required this.armed,
     required this.running,
     required this.cta,
+    required this.blockingFault,
   });
 
   /// Шаги в порядке исполнения. Состав зависит от режима: у «нагрева» нет
@@ -115,6 +116,7 @@ class PipelineModel {
   final bool armed;
   final bool running;
   final CtaKind cta;
+  final MachineError blockingFault;
 
   PipelineStep? byId(StepId id) {
     for (final s in steps) {
@@ -188,11 +190,22 @@ PipelineModel buildPipeline({
   if (mode != WorkMode.brew) {
     final live = phase == BrewPhase.heating && d.status != null;
     final shown = live ? d.status!.temperatureC : recipe.temperatureC;
+    final displayCurrent = toDisplayTemp(shown, fahrenheit);
+    final displayTarget = toDisplayTemp(recipe.temperatureC, fahrenheit);
+    final fault = _heaterFault(d) ? d.lastFault : MachineError.none;
     steps.add(
       PipelineStep(
         id: StepId.heat,
         label: _heatLabel(t, d),
-        value: '${toDisplayTemp(shown, fahrenheit)}${fahrenheit ? '°F' : '°C'}',
+        value: fault != MachineError.none
+            ? fault.action(t)
+            : live
+            ? t.temperatureProgress(
+                displayCurrent,
+                displayTarget,
+                fahrenheit ? '°F' : '°C',
+              )
+            : '$displayTarget${fahrenheit ? '°F' : '°C'}',
         tone: StepTone.heat,
         mark: _heaterFault(d) ? StepMark.error : _markOf(phase, StepId.heat),
         // Прогрев считаем от комнатных 24°: от нуля шкала почти не двигалась бы.
@@ -279,20 +292,32 @@ PipelineModel buildPipeline({
     mode: mode,
     armed: a.enabled,
     running: busy,
-    cta: ctaKindOf(d, armed: a.enabled),
+    cta: ctaKindOf(d, armed: a.enabled, mode: mode),
+    blockingFault: faultBlocksMode(d.lastFault, mode)
+        ? d.lastFault
+        : MachineError.none,
   );
 }
 
 /// Что предложить единственной кнопкой внизу.
-CtaKind ctaKindOf(K2Device d, {required bool armed}) {
+CtaKind ctaKindOf(K2Device d, {required bool armed, required WorkMode mode}) {
   if (!d.isConnected) return CtaKind.connect;
   if (d.isBusy) return CtaKind.stop;
   // Машина ждёт своего часа: единственное осмысленное действие — снять
   // ожидание, иначе она всё равно запустится сама.
   if (armed) return CtaKind.cancelAlarm;
+  if (faultBlocksMode(d.lastFault, mode)) return CtaKind.blocked;
   if (d.status?.state.isDone ?? false) return CtaKind.done;
   return CtaKind.start;
 }
+
+bool faultBlocksMode(MachineError fault, WorkMode mode) => switch (fault) {
+  MachineError.none => false,
+  MachineError.dryBurning || MachineError.lowBattery => true,
+  MachineError.batteryOverheating ||
+  MachineError.heaterShortCircuit ||
+  MachineError.lowBatteryHot => mode != WorkMode.brew,
+};
 
 /// Шаг, который длится заданное число секунд.
 PipelineStep _timed({
@@ -312,8 +337,8 @@ PipelineStep _timed({
   final left = d.progress.total == null
       ? null
       : d.progress.total! - d.progress.elapsed;
-  // Смачивание и пауза отсчитывают своё время назад, экстракция — вверх;
-  // в покое обе показывают уставку.
+  // В работе направление отсчёта подписано явно: у смачивания и паузы
+  // осталось N секунд, у экстракции показано N из всей уставки.
   final live = active
       ? countUp
             ? d.progress.elapsed.inSeconds
@@ -322,7 +347,11 @@ PipelineStep _timed({
   return PipelineStep(
     id: id,
     label: label,
-    value: t.seconds(live),
+    value: active
+        ? countUp
+              ? t.secondsOf(live.clamp(0, seconds), seconds)
+              : t.secondsRemaining(live)
+        : t.seconds(live),
     tone: tone,
     mark: _markOf(d.progress.phase, id),
     progress: active ? d.progress.fraction : null,

@@ -132,6 +132,7 @@ class _ScanSheetState extends State<_ScanSheet> {
               const SizedBox(width: 8),
               KSwitch(
                 value: _showAll,
+                semanticLabel: t.showAll,
                 onChanged: (v) {
                   setState(() => _showAll = v);
                   _scan();

@@ -7,7 +7,9 @@ import 'package:k2pro/main.dart';
 import 'package:k2pro/store/prefs.dart';
 import 'package:k2pro/store/recipe_editor.dart';
 import 'package:k2pro/ui/sheets/sheet.dart';
+import 'package:k2pro/ui/theme.dart';
 import 'package:k2pro/ui/widgets/cycle_timeline.dart';
+import 'package:k2pro/ui/widgets/bottom_bar.dart';
 import 'package:k2pro/ui/widgets/round_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -51,6 +53,16 @@ void main() {
     }
   }
 
+  Future<void> slideStart(WidgetTester tester) async {
+    final bar = tester.getRect(find.byType(BottomBar));
+    final gesture = await tester.startGesture(
+      Offset(bar.left + 48, bar.center.dy),
+    );
+    await gesture.moveBy(const Offset(250, 0));
+    await gesture.up();
+    await tester.pump();
+  }
+
   testWidgets('главный экран рисуется до подключения', (tester) async {
     await withApp(tester, (device) async {
       // Ни заголовка, ни подписи статуса на экране нет: состояние показывает
@@ -74,7 +86,7 @@ void main() {
       expect(device.workParams.pressure.max, 15);
       expect(device.info?.model, 'PCM03SPRO');
 
-      expect(find.text('Start'), findsOneWidget);
+      expect(find.text('Slide to start'), findsOneWidget);
       // Таймлайн показывает то, что лежит в машине: 92 °C и весь пролив
       // одной строкой — 5 смачивания, 5 паузы и 70 экстракции.
       expect(find.text('92\u00b0C'), findsOneWidget);
@@ -317,7 +329,12 @@ void main() {
       device.connect('mock');
       await settle(tester);
 
-      await tester.tap(find.text('Start'));
+      // Обычный тап не должен случайно включать нагреватель.
+      await tester.tapAt(tester.getRect(find.byType(BottomBar)).center);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(device.isBusy, isFalse);
+
+      await slideStart(tester);
       await settle(tester);
 
       expect(device.isBusy, isTrue);
@@ -326,6 +343,59 @@ void main() {
       await tester.tap(find.text('Stop'));
       await settle(tester);
       expect(device.isBusy, isFalse);
+    });
+  });
+
+  testWidgets('ошибка блокирует пуск до явной проверки', (tester) async {
+    await withApp(tester, (device) async {
+      device.connect('mock');
+      await settle(tester);
+
+      device.lastFault = MachineError.dryBurning;
+      device.lastFaultAt = DateTime(2026, 1, 1, 8, 12);
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(find.text('Add water'), findsWidgets);
+      expect(find.text('Slide to start'), findsNothing);
+
+      await tester.tap(find.text('Check again'));
+      await tester.pump();
+      expect(find.text('Slide to start'), findsOneWidget);
+    });
+  });
+
+  testWidgets('единицы температуры доступны из меню машины', (tester) async {
+    await withApp(tester, (device) async {
+      device.connect('mock');
+      await settle(tester);
+
+      await tester.tap(find.byType(RoundIconButton).first);
+      await settle(tester);
+      expect(find.text('92°C'), findsWidgets);
+
+      await tester.tap(find.text('Temperature unit'));
+      await tester.pump();
+      expect(prefs.fahrenheit, isTrue);
+      expect(find.text('198°F'), findsWidgets);
+    });
+  });
+
+  testWidgets('запуск по времени требует подтверждения', (tester) async {
+    await withApp(tester, (device) async {
+      device.connect('mock');
+      await settle(tester);
+
+      await tester.tap(find.byKey(const ValueKey(StepKind.alarm)));
+      await settle(tester);
+      await tester.tap(find.byType(KSwitch).first);
+      await tester.pump();
+
+      expect(find.text('Enable scheduled start?'), findsOneWidget);
+      expect(device.appointment.enabled, isFalse);
+
+      await tester.tap(find.text('Enable'));
+      await settle(tester);
+      expect(device.appointment.enabled, isTrue);
     });
   });
 
@@ -342,7 +412,7 @@ void main() {
       await settle(tester);
       expect(prefs.runMode, WorkMode.brew);
 
-      await tester.tap(find.text('Start'));
+      await tester.tap(find.textContaining('Start').last);
       await settle(tester);
       expect(device.status?.state, MachineState.brewing);
     });

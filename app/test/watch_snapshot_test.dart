@@ -57,7 +57,7 @@ void main() {
     for (final r in s['steps'] as List) (r as Map)['id'] as String,
   ];
 
-  test('полный цикл: четыре ряда, пролив свёрнут', () async {
+  test('нагрев с проливом: четыре ряда, пролив свёрнут', () async {
     await device.connect('mock-k2pro');
     await Future<void>.delayed(const Duration(seconds: 3));
 
@@ -117,7 +117,8 @@ void main() {
     final mine = (snapshot()['devices'] as List).first as Map;
     expect(mine['connected'], true);
     expect(mine['name'], 'Моя K2');
-    expect(mine['batteryPercent'], isA<int>());
+    expect(mine['battery'], isA<int>());
+    expect(mine['batteryPercent'], isNull);
   });
 
   test('ожидание показывается только на пуске и остановке', () async {

@@ -111,6 +111,7 @@ struct Cta: Codable, Equatable {
 
   /// Команда ушла, машина ещё не подтвердила: вместо подписи — ожидание.
   var busy: Bool
+  var hold: Bool?
 
   /// Пока машина не на связи, единственное осмысленное действие — подключиться.
   var isConnect: Bool { kind == "connect" }

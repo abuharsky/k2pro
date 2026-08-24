@@ -77,9 +77,10 @@ class CycleTimeline extends StatefulWidget {
   /// Цикл идёт — кольцо активной карточки пульсирует.
   final bool running;
 
-  /// Ширина колонки по спецификации; сама карточка — 98.
-  static const double width = 106;
-  static const double cardWidth = 100;
+  /// Чуть шире прежнего: «36/92°C» и подсказка по ошибке должны читаться,
+  /// а не ужиматься до нечитаемого кегля.
+  static const double width = 120;
+  static const double cardWidth = 112;
 
   @override
   State<CycleTimeline> createState() => _CycleTimelineState();
@@ -100,6 +101,7 @@ class _CycleTimelineState extends State<CycleTimeline>
 
   @override
   Widget build(BuildContext context) {
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
     // Каждая карточка размывает фон под собой. Поодиночке это четыре
     // отдельных прохода по одной и той же картинке; BackdropGroup считает их
     // за один — штатный способ не платить за стекло четырежды.
@@ -129,7 +131,9 @@ class _CycleTimelineState extends State<CycleTimeline>
                     key: ValueKey(step.kind),
                     step: step,
                     pulse: widget.running || step.mark == StepMark.error
-                        ? _pulse.value
+                        ? disableAnimations
+                              ? 0
+                              : _pulse.value
                         : 0,
                   ),
                 ],
@@ -183,6 +187,7 @@ class _Card extends StatelessWidget {
     final tone = failed ? PhaseTone.error : step.tone;
     // Карточка-условие (режим, выключенный таймер) стоит вне очереди фаз.
     final setting = step.mark == StepMark.setting;
+    final multilineValue = step.value.contains('\n');
 
     // Яркость показывает не «включено/выключено», а место шага во времени:
     // впереди — белым, сейчас — цветом фазы, позади — приглушённо. Серым
@@ -230,6 +235,7 @@ class _Card extends StatelessWidget {
                 duration: const Duration(milliseconds: 500),
                 curve: Curves.easeOutCubic,
                 width: double.infinity,
+                constraints: BoxConstraints(minHeight: active ? 64 : 58),
                 padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
                 decoration: ShapeDecoration(
                   gradient: LinearGradient(
@@ -264,25 +270,33 @@ class _Card extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    KText(
-                      step.value,
-                      style: K.stepValue.copyWith(
-                        // Активное значение светится своим цветом: цифра на
-                        // тёмном стекле должна быть неоном, а не просто
-                        // цветным текстом.
-                        shadows: active
-                            ? [
-                                Shadow(
-                                  color: tone.color.withValues(alpha: 0.5),
-                                  blurRadius: 12,
-                                ),
-                              ]
-                            : null,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: KText(
+                        step.value,
+                        style: K.stepValue.copyWith(
+                          fontSize: active
+                              ? 18
+                              : multilineValue
+                              ? 15
+                              : 16,
+                          height: multilineValue ? 1.05 : null,
+                          // Активное значение светится своим цветом: цифра на
+                          // тёмном стекле должна быть неоном, а не просто
+                          // цветным текстом.
+                          shadows: active
+                              ? [
+                                  Shadow(
+                                    color: tone.color.withValues(alpha: 0.5),
+                                    blurRadius: 12,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        color: valueColor,
+                        textAlign: TextAlign.center,
+                        maxLines: multilineValue ? 2 : 1,
                       ),
-                      color: valueColor,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),

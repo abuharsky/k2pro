@@ -95,8 +95,12 @@ struct PipelineView: View {
               ? Color(hex: snap.accentText) : K.ready,
             size: K.M.headerDot
           )
-          if let percent = snap.device?.batteryPercent {
-            Text("\(percent)%").font(K.F.battery).foregroundStyle(K.secondary)
+          if let level = snap.device?.battery {
+            BatteryGauge(
+              level: level,
+              percent: nil,
+              charging: snap.device?.charging == true
+            )
           }
         }
       }
@@ -244,7 +248,10 @@ struct CtaButton: View {
   var pending = false
   let onTap: () -> Void
 
+  @State private var holding = false
+
   private var waiting: Bool { cta.busy || pending }
+  private var needsHold: Bool { cta.hold == true }
 
   /// Остановка не блокируется ожиданием никогда.
   ///
@@ -253,11 +260,11 @@ struct CtaButton: View {
   /// запрёт человека наедине с работающим кипятильником. Повторный «Стоп»
   /// безвреден: команда идемпотентна.
   private var locked: Bool {
-    cta.kind == "done" || (waiting && cta.kind != "stop")
+    cta.kind == "done" || cta.kind == "blocked" || (waiting && cta.kind != "stop")
   }
 
   var body: some View {
-    Button(action: onTap) {
+    Button(action: { if !needsHold { onTap() } }) {
       Group {
         if locked {
           spinner
@@ -279,6 +286,18 @@ struct CtaButton: View {
     }
     .buttonStyle(.plain)
     .disabled(locked)
+    .scaleEffect(holding ? 0.97 : 1)
+    .animation(.easeOut(duration: 0.12), value: holding)
+    .onLongPressGesture(
+      minimumDuration: 0.85,
+      maximumDistance: 28,
+      pressing: { pressing in
+        if needsHold && !locked { holding = pressing }
+      },
+      perform: {
+        if needsHold && !locked { onTap() }
+      }
+    )
   }
 
   private var spinner: some View {

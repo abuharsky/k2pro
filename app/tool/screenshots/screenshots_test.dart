@@ -14,6 +14,7 @@ import 'package:k2pro/ui/scene/machine_scene.dart';
 import 'package:k2pro/ui/scene/scene_state.dart';
 import 'package:k2pro/ui/theme.dart';
 import 'package:k2pro/ui/widgets/cycle_timeline.dart';
+import 'package:k2pro/ui/widgets/bottom_bar.dart';
 import 'package:k2pro/ui/widgets/round_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -75,10 +76,16 @@ void main() {
       top: 47 * dpr,
       bottom: 34 * dpr,
     );
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
     addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
 
     final prefs = await Prefs.load();
-    final device = K2Device(MockTransport());
+    final device = K2Device(
+      MockTransport(),
+      now: () => DateTime(2026, 1, 1, 6),
+    );
     final editor = RecipeEditor(device: device, prefs: prefs);
     await tester.pumpWidget(
       K2App(device: device, prefs: prefs, editor: editor),
@@ -111,6 +118,16 @@ void main() {
     }
   }
 
+  Future<void> slideStart(WidgetTester tester) async {
+    final bar = tester.getRect(find.byType(BottomBar));
+    final gesture = await tester.startGesture(
+      Offset(bar.left + 48, bar.center.dy),
+    );
+    await gesture.moveBy(const Offset(250, 0));
+    await gesture.up();
+    await tester.pump();
+  }
+
   testWidgets('01 disconnected', (tester) async {
     await shoot(tester, '01_disconnected', scenario: (_, _) async {});
   });
@@ -133,7 +150,7 @@ void main() {
       scenario: (device, _) async {
         device.connect('mock');
         await settle(tester);
-        await tester.tap(find.text('Start'));
+        await slideStart(tester);
         await settle(tester, steps: 8);
       },
     );
@@ -146,7 +163,7 @@ void main() {
       scenario: (device, _) async {
         device.connect('mock');
         await settle(tester);
-        await tester.tap(find.text('Start'));
+        await slideStart(tester);
         // ждём, пока догреется и пойдёт таймлайн фаз
         await settle(tester, steps: 90);
       },

@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../l10n/l10n_ext.dart';
 import '../theme.dart';
 import '../widgets/k_icons.dart';
 
@@ -10,7 +13,8 @@ import '../widgets/k_icons.dart';
 /// Лист выезжает снизу за 0.35 с; фон — sheetBg с размытием 30 и скруглением
 /// 30 сверху. От краёв экрана он отодвинут на [SheetShell.inset]: лист,
 /// упирающийся в самые бортики, читается как второй экран, а отступ оставляет
-/// его тем, что он есть, — карточкой, лежащей поверх.
+/// его тем, что он есть, — карточкой, лежащей поверх. Вширь лист не
+/// растягивается дальше [SheetShell.maxWidth] и держится по центру.
 Future<T?> showAppSheet<T>(
   BuildContext context, {
   required String title,
@@ -52,65 +56,80 @@ class SheetShell extends StatelessWidget {
   /// Зазор до бортиков экрана.
   static const double inset = 8;
 
+  /// Предел ширины. На телефоне лист и так уже — ограничение не работает;
+  /// на планшете и на маке оно не даёт ряду настроек разъехаться на всю
+  /// ширину, где кнопки уезжают от значений на пол-экрана.
+  static const double maxWidth = 460;
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: inset),
-      child: ClipRSuperellipse(
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(K.rSheet),
-        ),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: K.blurSheet, sigmaY: K.blurSheet),
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [K.sheetTop, K.sheetBottom],
-              ),
-              border: Border(
-                top: BorderSide(color: K.sheetBorder),
-                left: BorderSide(color: K.sheetBorder),
-                right: BorderSide(color: K.sheetBorder),
-              ),
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(K.rSheet),
-              ),
+    return Align(
+      alignment: Alignment.bottomCenter,
+      // heightFactor, чтобы обвязка не растянулась на весь экран: лист внутри
+      // модалки высоту не задаёт, и без этого тап мимо него не долетел бы до
+      // затемнения.
+      heightFactor: 1,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: maxWidth + inset * 2),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: inset),
+          child: ClipRSuperellipse(
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(K.rSheet),
             ),
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  top: 10,
-                  left: 18,
-                  right: 18,
-                  bottom: 36 + MediaQuery.of(context).viewInsets.bottom,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: K.blurSheet, sigmaY: K.blurSheet),
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [K.sheetTop, K.sheetBottom],
+                  ),
+                  border: Border(
+                    top: BorderSide(color: K.sheetBorder),
+                    left: BorderSide(color: K.sheetBorder),
+                    right: BorderSide(color: K.sheetBorder),
+                  ),
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(K.rSheet),
+                  ),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: K.grabber,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      top: 10,
+                      left: 18,
+                      right: 18,
+                      bottom: 36 + MediaQuery.of(context).viewInsets.bottom,
                     ),
-                    const SizedBox(height: 18),
-                    Row(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(child: Text(title, style: K.title)),
-                        ?trailing,
+                        Center(
+                          child: Container(
+                            width: 36,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: K.grabber,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            Expanded(child: Text(title, style: K.title)),
+                            ?trailing,
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        Flexible(child: SingleChildScrollView(child: child)),
                       ],
                     ),
-                    const SizedBox(height: 18),
-                    Flexible(child: SingleChildScrollView(child: child)),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -136,8 +155,21 @@ class SheetCaption extends StatelessWidget {
   );
 }
 
+/// Небольшой заголовок группы внутри длинной шторки.
+class SheetSectionTitle extends StatelessWidget {
+  const SheetSectionTitle(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 10, bottom: 6),
+    child: Text(text.toUpperCase(), style: K.cap.copyWith(color: K.textDim)),
+  );
+}
+
 /// Круглая кнопка шага: [−] и [+].
-class StepButton extends StatelessWidget {
+class StepButton extends StatefulWidget {
   const StepButton({
     super.key,
     required this.plus,
@@ -152,28 +184,77 @@ class StepButton extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) => KTap(
-    onTap: enabled ? onTap : null,
-    child: Glass(
-      shape: BoxShape.circle,
-      radius: size,
-      blur: K.blurButton,
-      // Кнопка мелкая и лежит внутри листа: густая тень под ней читается
-      // грязью, а не объёмом.
-      lifted: false,
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: Center(
-          child: KIconView(
-            plus ? KIcon.plus : KIcon.minus,
-            size: size * 0.42,
-            color: enabled ? K.text : K.textDisabled,
+  State<StepButton> createState() => _StepButtonState();
+}
+
+class _StepButtonState extends State<StepButton> {
+  Timer? _repeat;
+
+  @override
+  void dispose() {
+    _repeat?.cancel();
+    super.dispose();
+  }
+
+  void _startRepeat(LongPressStartDetails _) {
+    if (!widget.enabled) return;
+    HapticFeedback.selectionClick();
+    widget.onTap();
+    _repeat?.cancel();
+    _repeat = Timer.periodic(const Duration(milliseconds: 110), (_) {
+      if (widget.enabled) widget.onTap();
+    });
+  }
+
+  void _stopRepeat([Object? _]) {
+    _repeat?.cancel();
+    _repeat = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = widget.plus ? context.t.increase : context.t.decrease;
+    final visual = widget.size;
+    final target = visual < 44 ? 44.0 : visual;
+    return Semantics(
+      button: true,
+      enabled: widget.enabled,
+      label: label,
+      onTap: widget.enabled ? widget.onTap : null,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        excludeFromSemantics: true,
+        onTap: widget.enabled ? widget.onTap : null,
+        onLongPressStart: widget.enabled ? _startRepeat : null,
+        onLongPressEnd: widget.enabled ? _stopRepeat : null,
+        onLongPressCancel: widget.enabled ? _stopRepeat : null,
+        child: SizedBox.square(
+          dimension: target,
+          child: Center(
+            child: Glass(
+              shape: BoxShape.circle,
+              radius: visual,
+              blur: K.blurButton,
+              // Кнопка мелкая и лежит внутри листа: густая тень под ней читается
+              // грязью, а не объёмом.
+              lifted: false,
+              child: SizedBox(
+                width: visual,
+                height: visual,
+                child: Center(
+                  child: KIconView(
+                    widget.plus ? KIcon.plus : KIcon.minus,
+                    size: visual * 0.42,
+                    color: widget.enabled ? K.text : K.textDisabled,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// Крупный регулятор: значение 52/300 между двумя кнопками 46.
@@ -516,9 +597,9 @@ class SheetOption extends StatelessWidget {
   final bool danger;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
+  Widget build(BuildContext context) => KTap(
     onTap: onTap,
-    behavior: HitTestBehavior.opaque,
+    semanticLabel: title,
     child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 13),
       child: Row(
@@ -576,7 +657,7 @@ class SheetSwitch extends StatelessWidget {
             ),
           ),
         ),
-        KSwitch(value: value, onChanged: onChanged),
+        KSwitch(value: value, onChanged: onChanged, semanticLabel: title),
       ],
     ),
   );

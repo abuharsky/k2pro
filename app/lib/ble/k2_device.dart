@@ -11,7 +11,8 @@ import 'transport.dart';
 
 /// Высокоуровневый API машины. UI знает только про этот класс.
 class K2Device extends ChangeNotifier {
-  K2Device(this._transport) {
+  K2Device(this._transport, {DateTime Function()? now})
+    : _now = now ?? DateTime.now {
     _linkSub = _transport.linkState.listen(_onLink);
     _notifySub = _transport.notifications.listen(_onNotify);
     _scanSub = _transport.scanResults.listen((d) {
@@ -21,6 +22,7 @@ class K2Device extends ChangeNotifier {
   }
 
   final K2Transport _transport;
+  final DateTime Function() _now;
   late final StreamSubscription<LinkState> _linkSub;
   late final StreamSubscription<Uint8List> _notifySub;
   late final StreamSubscription<List<DiscoveredDevice>> _scanSub;
@@ -120,6 +122,9 @@ class K2Device extends ChangeNotifier {
   bool get isConnected => link == LinkState.connected;
   bool get isBusy => status?.state.isBusy ?? false;
 
+  /// Единая точка времени для UI и детерминированных тестов будильника.
+  DateTime get currentTime => _now();
+
   /// Машина на связи, но молчит — спит.
   ///
   /// Отличать это состояние приходится самим: оригинал его не различает вовсе.
@@ -134,11 +139,22 @@ class K2Device extends ChangeNotifier {
     // успевает стать фактом, а не задержкой подключения.
     final t = _lastTelemetryAt ?? _linkedAt;
     if (t == null) return true;
-    return DateTime.now().difference(t) > kTelemetrySilence;
+    return _now().difference(t) > kTelemetrySilence;
   }
 
   /// Когда установилась связь. Точка отсчёта молчания до первой телеметрии.
   DateTime? _linkedAt;
+
+  /// Номер текущей связи. Растёт на каждой смене состояния линии.
+  ///
+  /// Запрос, заведённый в одной связи, в следующей бессмыслен: машина его уже
+  /// не помнит, а очередь он держит. Без этого счётчика рукопожатие переживало
+  /// обрыв — обрыв ронял ожидание ответа, но не сам цикл, и тот спокойно шёл
+  /// к следующей команде. Каждое переподключение добавляло в очередь ещё
+  /// восемь запросов поверх недоеденных прежних; в живой трассе три подряд
+  /// таких цикла заняли линию на минуту, и тап «пуск» ждал её двадцать две
+  /// секунды.
+  int _linkGen = 0;
 
   /// Прошлое значение [isAsleep] — чтобы заметить переход и перерисоваться.
   ///
@@ -198,7 +214,9 @@ class K2Device extends ChangeNotifier {
     final id = connectedId;
     if (id == null || _reconnect != null) return;
     final wait = reconnectDelay(_reconnectAttempt);
-    _log('переподключение через ${wait.inSeconds} с (попытка ${_reconnectAttempt + 1})');
+    _log(
+      'переподключение через ${wait.inSeconds} с (попытка ${_reconnectAttempt + 1})',
+    );
     _reconnect = Timer(wait, () async {
       _reconnect = null;
       if (connectedId == null) return;
@@ -221,8 +239,9 @@ class K2Device extends ChangeNotifier {
   void _onLink(LinkState s) {
     _log('link ${s.name}');
     link = s;
+    _linkGen++;
     if (s == LinkState.connected) {
-      _linkedAt = DateTime.now();
+      _linkedAt = _now();
       _reconnectAttempt = 0;
       unawaited(_handshake());
     } else {
@@ -235,6 +254,7 @@ class K2Device extends ChangeNotifier {
       _lastTelemetryAt = null;
       _linkedAt = null;
       _asleep = false;
+      _handshakeDone = false;
       _phases.reset();
       progress = BrewProgress.idle;
       _ticker?.cancel();
@@ -250,15 +270,29 @@ class K2Device extends ChangeNotifier {
   /// она отвечает на первое и молча теряет остальные. Поэтому каждый запрос
   /// ждёт свой ответ и повторяется, если ответа нет.
   Future<void> _handshake() async {
+    final gen = _linkGen;
     // Ей нужно время после setNotifyValue, иначе теряется и первая команда.
     await Future<void>.delayed(kHandshakeDelay);
+    if (gen != _linkGen) return;
     // Телеметрию 0x00 машина шлёт сама, поэтому фазы считаем сразу, не дожидаясь
     // конца опроса: он может занять секунды.
     _ticker ??= Timer.periodic(
       const Duration(milliseconds: 250),
       (_) => _tick(),
     );
-    await _request(cmdSetTime(), Cmd.setTime, tries: 2);
+    // setTime — пробный камень. Спящая машина принимает GATT-подключение и
+    // подписку как ни в чём не бывало, а кадры глотает молча: в живой трассе
+    // за три минуты не пришло ни одного байта. Опрашивать её дальше нечем —
+    // каждый из оставшихся семи запросов стоит своих четырёх секунд впустую
+    // и всё это время держит линию. Ждём, пока сама заговорит: телеметрию она
+    // начинает слать без спроса, и на неё мы отзовёмся в [_watchSilence].
+    if (await _request(cmdSetTime(), Cmd.setTime, tries: 2) == null) {
+      if (gen != _linkGen) return;
+      _log('машина не отозвалась на 0x04 — опрос отложен до её пробуждения');
+      _handshakeDone = false;
+      return;
+    }
+    if (gen != _linkGen) return;
     await _request(cmdGetTempSetting(), Cmd.getTempSetting);
     await _request(cmdGetWorkParams(), Cmd.getWorkParams);
     await _request(cmdGetAppointment(), Cmd.getAppointment);
@@ -270,7 +304,12 @@ class K2Device extends ChangeNotifier {
     // который шлёт тот же 0x00. Один ответ — и экран показывает состояние
     // сразу, а не через секунды; молчание же сразу видно в трассе.
     await _request(cmdGetDeviceState(), Cmd.deviceState);
+    if (gen != _linkGen) return;
+    _handshakeDone = true;
   }
+
+  /// Успел ли опрос пройти целиком. Пока нет — ждём случая повторить.
+  bool _handshakeDone = false;
 
   // ---- очередь записи ---------------------------------------------------
 
@@ -281,23 +320,47 @@ class K2Device extends ChangeNotifier {
   /// Ждущие ответа запросы: cmd -> кому отдать нагрузку.
   final Map<int, Completer<Uint8List>> _waiters = {};
 
-  /// Хвост цепочки транзакций. Оригинал держит семафор на всё «запрос → ответ»,
+  /// Очередь транзакций. Оригинал держит семафор на всё «запрос → ответ»,
   /// а не только на запись: если между отправкой и ответом влезет чужой кадр,
   /// машина сбивается — теряет ответ и рвёт фрагменты длинных посылок.
-  Future<void> _txn = Future<void>.value();
+  final Queue<Future<void> Function()> _txns = Queue();
+  bool _txnBusy = false;
 
   /// Выполнить тело, когда освободится линия. Ошибки не рвут цепочку.
-  Future<T> _exclusive<T>(Future<T> Function() body) {
-    final prev = _txn;
+  ///
+  /// [urgent] — встать в начало очереди. Так ходит то, что нажал человек:
+  /// пуск, стоп, уставки. Чтение никуда не торопится, а вот кнопка, которая
+  /// ждёт своей очереди за чужим опросом, выглядит как сломанная — в живой
+  /// трассе между тапом и ушедшим кадром прошло двадцать две секунды.
+  Future<T> _exclusive<T>(Future<T> Function() body, {bool urgent = false}) {
     final done = Completer<T>();
-    _txn = prev.then((_) async {
+    Future<void> run() async {
       try {
         done.complete(await body());
       } catch (e, st) {
         done.completeError(e, st);
       }
-    });
+    }
+
+    if (urgent) {
+      _txns.addFirst(run);
+    } else {
+      _txns.add(run);
+    }
+    unawaited(_pumpTxns());
     return done.future;
+  }
+
+  Future<void> _pumpTxns() async {
+    if (_txnBusy) return;
+    _txnBusy = true;
+    try {
+      while (_txns.isNotEmpty) {
+        await _txns.removeFirst()();
+      }
+    } finally {
+      _txnBusy = false;
+    }
   }
 
   /// Отправить и дождаться ответа с тем же cmd. null, если машина промолчала.
@@ -307,9 +370,17 @@ class K2Device extends ChangeNotifier {
     // Машина отвечает медленно: на 0x08 в живом логе ушло 3.2 с.
     Duration timeout = const Duration(seconds: 4),
     int tries = 3,
-  }) => _exclusive(
-    () => _requestLocked(frame, cmd, timeout: timeout, tries: tries),
-  );
+    bool urgent = false,
+  }) {
+    // Поколение снимаем здесь, а не в теле: тело выполнится когда-то потом,
+    // и к тому времени связь может быть уже другая — та, для которой этот
+    // запрос никто не заказывал.
+    final gen = _linkGen;
+    return _exclusive(
+      urgent: urgent,
+      () => _requestLocked(frame, cmd, timeout: timeout, tries: tries, gen: gen),
+    );
+  }
 
   /// Тело транзакции. Вызывать только из-под [_exclusive].
   Future<Uint8List?> _requestLocked(
@@ -317,8 +388,10 @@ class K2Device extends ChangeNotifier {
     int cmd, {
     required Duration timeout,
     required int tries,
+    required int gen,
   }) async {
     for (var attempt = 1; attempt <= tries; attempt++) {
+      if (gen != _linkGen) return null;
       final c = Completer<Uint8List>();
       _waiters[cmd] = c;
       await _send(frame);
@@ -426,7 +499,7 @@ class K2Device extends ChangeNotifier {
           final s = parseDeviceStatus(p);
           final was = status;
           status = s;
-          _lastTelemetryAt = DateTime.now();
+          _lastTelemetryAt = _now();
           lastStateRaw = _hex(p);
           // Телеметрия идёт раз в секунду; в трассе она нужна вся — по ней
           // видно, сколько машина грела и на какой температуре сорвалась.
@@ -441,14 +514,14 @@ class K2Device extends ChangeNotifier {
           // потом не с чем.
           if (s.error != MachineError.none) {
             lastFault = s.error;
-            lastFaultAt = DateTime.now();
+            lastFaultAt = _now();
           }
-          _phases.onState(s.state, now: DateTime.now());
+          _phases.onState(s.state, now: _now());
           if (_spentAt != null) {
             if (s.state.isBusy) {
               _busySinceSpent = true;
             } else if (_busySinceSpent ||
-                DateTime.now().difference(_spentAt!) > kScheduleGrace) {
+                _now().difference(_spentAt!) > kScheduleGrace) {
               // Цикл закончился — или его не было вовсе и ждать больше нечего.
               _spentAt = null;
               _busySinceSpent = false;
@@ -486,9 +559,7 @@ class K2Device extends ChangeNotifier {
             appointment = parseAppointment(p);
             // Машина отдаёт только hh:mm и флаг, без даты. Отсчёт ведём от
             // момента, когда узнали про взведённый будильник.
-            _armedAt = appointment.enabled
-                ? (_armedAt ?? DateTime.now())
-                : null;
+            _armedAt = appointment.enabled ? (_armedAt ?? _now()) : null;
           }
         case Cmd.deviceInfo:
           info = parseDeviceInfo(p);
@@ -508,7 +579,7 @@ class K2Device extends ChangeNotifier {
           // сих пор молча роняли — и чуть не пропустили 0x12. Больше не роняем.
           lastEventRaw = _hex(p);
           lastEventCmd = cmd;
-          lastEventAt = DateTime.now();
+          lastEventAt = _now();
           _log(
             '0x${cmd.toRadixString(16).padLeft(2, "0")} ${_hex(p)}'
             '   <<< НЕЗАПРОШЕННОЕ СОБЫТИЕ',
@@ -550,7 +621,7 @@ class K2Device extends ChangeNotifier {
   DateTime? get scheduledAt {
     final a = appointment;
     if (!a.enabled) return null;
-    final from = _armedAt ?? DateTime.now();
+    final from = _armedAt ?? _now();
     final today = DateTime(from.year, from.month, from.day, a.hour, a.minute);
     return today.isAfter(from) ? today : today.add(const Duration(days: 1));
   }
@@ -593,6 +664,10 @@ class K2Device extends ChangeNotifier {
     if (now == _asleep) return;
     _asleep = now;
     _log(now ? 'телеметрия смолкла — машина спит' : 'телеметрия пошла');
+    // Заговорила — значит, теперь ответит и на запросы. Опрос, который мы
+    // бросили на первом же молчании, доводим здесь: иначе связь есть, а
+    // диапазонов, версии и счётчиков так и нет до перезапуска приложения.
+    if (!now && !_handshakeDone) unawaited(_handshake());
     notifyListeners();
   }
 
@@ -608,10 +683,10 @@ class K2Device extends ChangeNotifier {
   /// приходит. Спрашиваем после цикла, см. [_verifyScheduleCleared].
   void _expireSchedule() {
     final at = scheduledAt;
-    if (at == null || DateTime.now().isBefore(at)) return;
+    if (at == null || _now().isBefore(at)) return;
     appointment = appointment.copyWith(enabled: false);
     _armedAt = null;
-    _spentAt = DateTime.now();
+    _spentAt = _now();
     _busySinceSpent = false;
     _log(
       'будильник ${at.hour}:${at.minute.toString().padLeft(2, '0')} '
@@ -628,26 +703,28 @@ class K2Device extends ChangeNotifier {
       error: s.error,
       currentTemperature: s.temperatureC,
       recipe: deviceRecipe,
-      now: DateTime.now(),
+      now: _now(),
     );
     if (!silent) notifyListeners();
   }
 
   // ---- команды ----------------------------------------------------------
 
-  Future<void> heatAndBrew() =>
-      _exclusive(() => _send(cmdSetWorkState(true, WorkMode.heatAndBrew)));
+  Future<void> heatAndBrew() => _exclusive(
+    urgent: true,
+    () => _send(cmdSetWorkState(true, WorkMode.heatAndBrew)),
+  );
   Future<void> heat() =>
-      _exclusive(() => _send(cmdSetWorkState(true, WorkMode.heat)));
+      _exclusive(urgent: true, () => _send(cmdSetWorkState(true, WorkMode.heat)));
   Future<void> brew() =>
-      _exclusive(() => _send(cmdSetWorkState(true, WorkMode.brew)));
+      _exclusive(urgent: true, () => _send(cmdSetWorkState(true, WorkMode.brew)));
 
   /// Стоп — единственная команда, которую нельзя терять: 0x02 машина
   /// подтверждает эхом `01`, но раньше мы его не слушали, и потерянный кадр
   /// оставлял машину греть, а человека — тянуться к кнопке на корпусе.
   /// Повтор безопасен: остановленная машина на второй стоп ничего не сделает.
   Future<void> stop() async {
-    final ack = await _request(cmdStop(), Cmd.setWorkState, tries: 3);
+    final ack = await _request(cmdStop(), Cmd.setWorkState, tries: 3, urgent: true);
     if (ack == null) lastError = 'машина не подтвердила остановку';
   }
 
@@ -655,7 +732,12 @@ class K2Device extends ChangeNotifier {
     final v = tempLimits.clamp(celsius);
     // 0x16 машина подтверждает эхом уставки, так что это полноценная транзакция.
     // Повтор безопасен: записывается то же самое число.
-    await _request(cmdSetTargetTemperature(v), Cmd.setTempSetting, tries: 2);
+    await _request(
+      cmdSetTargetTemperature(v),
+      Cmd.setTempSetting,
+      tries: 2,
+      urgent: true,
+    );
   }
 
   /// Записать рецепт: температура отдельной командой, остальное — одной.
@@ -676,6 +758,7 @@ class K2Device extends ChangeNotifier {
         cmdSetTargetTemperature(target),
         Cmd.setTempSetting,
         tries: tries,
+        urgent: true,
       );
     }
     await _request(
@@ -689,6 +772,7 @@ class K2Device extends ChangeNotifier {
       ),
       Cmd.setWorkParams,
       tries: tries,
+      urgent: true,
     );
   }
 
@@ -706,7 +790,7 @@ class K2Device extends ChangeNotifier {
   /// принято одним нажатием, а машина тем временем идёт к своему часу.
   void setSchedule(Appointment a, {bool immediate = false}) {
     appointment = a;
-    _armedAt = a.enabled ? DateTime.now() : null;
+    _armedAt = a.enabled ? _now() : null;
     notifyListeners();
 
     _scheduleDebounce?.cancel();

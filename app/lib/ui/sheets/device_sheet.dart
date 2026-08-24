@@ -27,10 +27,14 @@ Future<DeviceAction?> showDeviceSheet(
     context,
     title: prefs.deviceName,
     builder: (ctx) => ListenableBuilder(
-      listenable: device,
+      listenable: Listenable.merge([device, prefs]),
       builder: (ctx, _) {
         final info = device.info;
         final week = device.history.values.fold(0, (a, b) => a + b);
+        final fullPour =
+            recipe.preInfusionSeconds +
+            recipe.standstillSeconds +
+            recipe.extractionSeconds;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -53,6 +57,7 @@ Future<DeviceAction?> showDeviceSheet(
               style: const TextStyle(color: K.textDim, fontSize: 12),
             ),
             const SizedBox(height: 18),
+            SheetSectionTitle(t.sectionOverview),
             // Статистика — только то, что машина сама про себя рассказала.
             Row(
               children: [
@@ -78,7 +83,9 @@ Future<DeviceAction?> showDeviceSheet(
               children: [
                 Expanded(
                   child: _Stat(
-                    value: '${recipe.temperatureC}°C',
+                    value:
+                        '${toDisplayTemp(recipe.temperatureC, prefs.fahrenheit)}'
+                        '${prefs.fahrenheit ? '°F' : '°C'}',
                     label: t.temperature,
                     color: K.textBright,
                   ),
@@ -86,7 +93,7 @@ Future<DeviceAction?> showDeviceSheet(
                 const SizedBox(width: 10),
                 Expanded(
                   child: _Stat(
-                    value: t.seconds(recipe.extractionSeconds),
+                    value: t.seconds(fullPour),
                     label: t.pourTitle,
                     color: K.textBright,
                   ),
@@ -94,6 +101,7 @@ Future<DeviceAction?> showDeviceSheet(
               ],
             ),
             const SizedBox(height: 18),
+            SheetSectionTitle(t.sectionApp),
             SheetOption(
               title: t.renameDevice,
               onTap: () => Navigator.pop(ctx, DeviceAction.rename),
@@ -103,6 +111,12 @@ Future<DeviceAction?> showDeviceSheet(
               trailing: languageLabel(t, prefs.localeCode),
               onTap: () => Navigator.pop(ctx, DeviceAction.language),
             ),
+            SheetOption(
+              title: t.temperatureUnit,
+              trailing: prefs.fahrenheit ? '°F' : '°C',
+              onTap: () => prefs.fahrenheit = !prefs.fahrenheit,
+            ),
+            SheetSectionTitle(t.sectionDevice),
             SheetOption(
               title: t.otherDevice,
               onTap: () => Navigator.pop(ctx, DeviceAction.choose),
@@ -114,6 +128,7 @@ Future<DeviceAction?> showDeviceSheet(
                 title: t.forgetDevice,
                 onTap: () => Navigator.pop(ctx, DeviceAction.forget),
               ),
+            SheetSectionTitle(t.sectionMaintenance),
             if (device.isConnected && !device.isBusy)
               SheetOption(
                 title: t.restoreDefaults,

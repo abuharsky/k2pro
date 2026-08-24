@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../ble/k2_device.dart';
 import '../../ble/protocol.dart';
+import '../../l10n/app_l10n.dart';
 import '../../l10n/l10n_ext.dart';
 import '../theme.dart';
 import 'sheet.dart';
@@ -18,9 +19,10 @@ Future<void> showTimerSheet(BuildContext context, K2Device device) async {
       listenable: device,
       builder: (ctx, _) => KSwitch(
         value: device.appointment.enabled,
+        semanticLabel: t.timer,
         // Пока связи нет, менять будильник некуда — он живёт в машине.
         onChanged: device.isConnected
-            ? (v) => device.setSchedule(device.appointment.copyWith(enabled: v))
+            ? (v) => _toggleSchedule(ctx, device, v)
             : null,
       ),
     ),
@@ -31,6 +33,64 @@ Future<void> showTimerSheet(BuildContext context, K2Device device) async {
   );
   // Лист закрыли — значение выбрано, ждать паузу больше незачем.
   await device.flushSchedule();
+}
+
+Future<void> _toggleSchedule(
+  BuildContext context,
+  K2Device device,
+  bool enabled,
+) async {
+  if (!enabled) {
+    device.setSchedule(
+      device.appointment.copyWith(enabled: false),
+      immediate: true,
+    );
+    return;
+  }
+  final t = context.t;
+  final ok = await showGlassDialog<bool>(
+    context,
+    title: t.confirmScheduledStart,
+    message: '${_scheduleSentence(t, device)}\n\n${t.scheduledStartWarning}',
+    actions: [
+      KDialogButton(
+        label: t.cancel,
+        onTap: () => Navigator.pop(context, false),
+      ),
+      KDialogButton(
+        label: t.enable,
+        danger: true,
+        onTap: () => Navigator.pop(context, true),
+      ),
+    ],
+  );
+  if (ok == true) {
+    device.setSchedule(
+      device.appointment.copyWith(enabled: true),
+      immediate: true,
+    );
+  }
+}
+
+DateTime _nextAt(Appointment a, {DateTime? from}) {
+  final now = from ?? DateTime.now();
+  final today = DateTime(now.year, now.month, now.day, a.hour, a.minute);
+  return today.isAfter(now) ? today : today.add(const Duration(days: 1));
+}
+
+String _scheduleSentence(AppL10n t, K2Device device) {
+  final a = device.appointment;
+  final now = device.currentTime;
+  final at = _nextAt(a, from: now);
+  final today =
+      at.year == now.year && at.month == now.month && at.day == now.day;
+  final time =
+      '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+  return t.scheduleStarts(
+    today ? t.scheduleToday : t.scheduleTomorrow,
+    time,
+    a.mode.label(t),
+  );
 }
 
 /// Что сейчас крутят кнопками: часы или минуты.
@@ -61,19 +121,77 @@ class _BodyState extends State<_Body> {
 
   static String _two(int v) => v.toString().padLeft(2, '0');
 
+  Future<void> _pickMode() async {
+    final t = context.t;
+    final current = widget.device.appointment;
+    final selected = await showAppSheet<ScheduleMode>(
+      context,
+      title: t.scheduleMode,
+      builder: (ctx) => Column(
+        children: [
+          for (final mode in ScheduleMode.values)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: SheetTile(
+                title: mode.label(t),
+                selected: mode == current.mode,
+                onTap: () => Navigator.pop(ctx, mode),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (selected != null) {
+      widget.device.setSchedule(
+        widget.device.appointment.copyWith(mode: selected),
+      );
+    }
+  }
+
+  Future<void> _pickTone() async {
+    final t = context.t;
+    final current = widget.device.appointment;
+    final selected = await showAppSheet<BeepSound>(
+      context,
+      title: t.scheduleTone,
+      builder: (ctx) => Column(
+        children: [
+          for (final tone in BeepSound.values)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: SheetTile(
+                title: tone.label(t),
+                selected: tone == current.beep,
+                onTap: () => Navigator.pop(ctx, tone),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (selected != null) {
+      widget.device.setSchedule(
+        widget.device.appointment.copyWith(beep: selected),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     final a = widget.device.appointment;
     final on = widget.device.isConnected;
-    // Пока будильник выключен, время и сигнал редактировать бессмысленно.
-    final live = on && a.enabled;
+    // Сначала настраиваем, затем осознанно включаем: иначе тумблер запускал бы
+    // старое время раньше, чем человек успел его изменить.
+    final live = on;
     final step = _unit == _Unit.hour ? 60 : 1;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SheetCaption(t.scheduleHint, align: TextAlign.start),
+        SheetCaption(
+          _scheduleSentence(t, widget.device),
+          align: TextAlign.start,
+        ),
         const SizedBox(height: 22),
         AnimatedOpacity(
           opacity: live ? 1 : 0.35,
@@ -143,13 +261,7 @@ class _BodyState extends State<_Body> {
               SheetOption(
                 title: t.scheduleMode,
                 trailing: a.mode.label(t),
-                onTap: live
-                    ? () => widget.device.setSchedule(
-                        a.copyWith(
-                          mode: ScheduleMode.values[(a.mode.index + 1) % 3],
-                        ),
-                      )
-                    : () {},
+                onTap: live ? () => _pickMode() : () {},
               ),
               SheetSwitch(
                 title: t.scheduleSound,
@@ -167,13 +279,7 @@ class _BodyState extends State<_Body> {
               SheetOption(
                 title: t.scheduleTone,
                 trailing: a.beep.label(t),
-                onTap: live
-                    ? () => widget.device.setSchedule(
-                        a.copyWith(
-                          beep: BeepSound.values[(a.beep.index + 1) % 4],
-                        ),
-                      )
-                    : () {},
+                onTap: live ? () => _pickTone() : () {},
               ),
             ],
           ),
@@ -198,9 +304,9 @@ class _Part extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
+  Widget build(BuildContext context) => KTap(
     onTap: onTap,
-    behavior: HitTestBehavior.opaque,
+    semanticLabel: text,
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [

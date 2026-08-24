@@ -83,9 +83,8 @@ Map<String, Object?> buildWatchSnapshot({
             'name': prefs.deviceName,
             // Делений на корпусе машины четыре — столько же и здесь.
             'battery': status?.batteryLevel,
-            'batteryPercent': status == null
-                ? null
-                : (status.batteryLevel * 100 / 4).round(),
+            // Проценты из четырёх корзин были ложной точностью.
+            'batteryPercent': null,
             'charging': status?.charge == ChargeState.charging,
             'state': status?.state.label(t),
             'running': d.isBusy,
@@ -219,9 +218,7 @@ List<Map<String, Object?>> _devices(AppL10n t, K2Device d, Prefs prefs) {
           ? t.deviceAvailable
           : t.notConnected,
       'battery': here ? status?.batteryLevel : null,
-      'batteryPercent': here && status != null
-          ? (status.batteryLevel * 100 / 4).round()
-          : null,
+      'batteryPercent': null,
       'charging': here && status?.charge == ChargeState.charging,
     });
   }
@@ -281,7 +278,11 @@ Map<String, Object?> _cta(
 ) {
   final (label, bg, fg) = switch (m.cta) {
     CtaKind.connect => (t.connect, accent, WatchPalette.onAccent),
-    CtaKind.start => (t.ctaStart, accent, WatchPalette.onAccent),
+    CtaKind.start => (
+      m.mode == WorkMode.brew ? t.startMode(m.mode.label(t)) : t.holdToStart,
+      accent,
+      WatchPalette.onAccent,
+    ),
     CtaKind.stop => (t.ctaStop, WatchPalette.danger, WatchPalette.onDanger),
     CtaKind.cancelAlarm => (
       t.cancelAlarm,
@@ -289,6 +290,11 @@ Map<String, Object?> _cta(
       WatchPalette.onDanger,
     ),
     CtaKind.done => (t.ctaDone, WatchPalette.success, WatchPalette.onSuccess),
+    CtaKind.blocked => (
+      m.blockingFault.action(t),
+      WatchPalette.danger,
+      WatchPalette.onDanger,
+    ),
   };
   return {
     'kind': m.cta.name,
@@ -297,6 +303,7 @@ Map<String, Object?> _cta(
     'fg': fg,
     // «Готово» и «Подключиться» ничего не ждут — крутить там нечего.
     'busy': busy && (m.cta == CtaKind.start || m.cta == CtaKind.stop),
+    'hold': m.cta == CtaKind.start && m.mode != WorkMode.brew,
   };
 }
 

@@ -158,6 +158,37 @@ class _HomePageState extends State<HomePage> {
     WorkMode.brew => widget.device.brew,
   });
 
+  /// После осознанного нажатия проверяем только то, что нельзя выразить
+  /// самой кнопкой: хватит ли заряда на нагрев. Удержание от случайного
+  /// запуска реализовано в CTA, а холодный пролив остаётся быстрым тапом.
+  Future<void> _requestStart(WorkMode mode) async {
+    final d = widget.device;
+    final needsHeat = mode != WorkMode.brew;
+    final batteryLow = (d.status?.batteryLevel ?? 4) <= 1;
+    if (needsHeat && batteryLow) {
+      final t = context.t;
+      final proceed = await showGlassDialog<bool>(
+        context,
+        title: t.lowBatteryStartTitle,
+        message: t.lowBatteryStartBody,
+        actions: [
+          KDialogButton(
+            label: t.cancel,
+            onTap: () => Navigator.pop(context, false),
+          ),
+          KDialogButton(
+            label: t.startAnyway,
+            danger: true,
+            onTap: () => Navigator.pop(context, true),
+          ),
+        ],
+      );
+      if (proceed != true || !mounted) return;
+    }
+    _awaitBusy(true);
+    unawaited(_run(mode));
+  }
+
   /// Меню машины: гамбургер и тап по имени ведут сюда же.
   Future<void> _openDeviceMenu(BuildContext context) async {
     final d = widget.device;
@@ -562,7 +593,9 @@ class _HomePageState extends State<HomePage> {
       steps.add(
         CycleStep(
           kind: StepKind.alarm,
-          label: alarm.label.toUpperCase(),
+          // Когда запуск взведён, важнее всего не повторить слово «запуск»,
+          // а сразу сказать, сегодня он произойдёт или уже завтра.
+          label: (model.armed ? _scheduleDay(t, d) : alarm.label).toUpperCase(),
           value: alarm.value,
           icon: KIcon.alarm,
           tone: model.armed ? PhaseTone.amber : PhaseTone.muted,
@@ -585,7 +618,7 @@ class _HomePageState extends State<HomePage> {
         CycleStep(
           kind: StepKind.mode,
           label: m.label.toUpperCase(),
-          // Полное «Нагрев и пролив» в карточку не лезет.
+          // Полное «Нагрев + пролив» в карточку не лезет.
           value: _modeShort(t, model.mode),
           icon: _modeIcon(model.mode),
           tone: ModeStyle.of(model.mode).tone,
@@ -677,12 +710,21 @@ class _HomePageState extends State<HomePage> {
     pipe.StepMark.error => StepMark.error,
   };
 
-  /// Короткое имя режима: полное «Нагрев и пролив» в карточку 98 px не лезет.
+  /// Короткое имя режима: полное «Нагрев + пролив» в карточку не лезет.
   static String _modeShort(AppL10n t, WorkMode mode) => switch (mode) {
     WorkMode.heat => t.modeHeatShort,
     WorkMode.heatAndBrew => t.modeFullShort,
     WorkMode.brew => t.modeBrewShort,
   };
+
+  static String _scheduleDay(AppL10n t, K2Device d) {
+    final at = d.scheduledAt;
+    if (at == null) return t.stepAlarm;
+    final now = d.currentTime;
+    final sameDay =
+        at.year == now.year && at.month == now.month && at.day == now.day;
+    return sameDay ? t.scheduleToday : t.scheduleTomorrow;
+  }
 
   static KIcon _modeIcon(WorkMode mode) => switch (mode) {
     WorkMode.heat => KIcon.coil,
@@ -734,17 +776,29 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    // Машина отчиталась «готово»: три секунды показываем итог, но кнопка
-    // остаётся рабочей — тап начинает новый цикл.
+    // Последняя ошибка остаётся на экране, пока человек явно не нажмёт
+    // «Проверить». До этого повторный потенциально опасный запуск недоступен.
+    final fault = d.lastFault;
+    if (pipe.faultBlocksMode(fault, mode)) {
+      return BarCta(kind: CtaKind.start, label: fault.action(t), mode: mode);
+    }
+
+    // Машина отчиталась «готово»: три секунды показываем итог без второго
+    // скрытого действия. Затем на этом месте снова появится безопасный пуск.
+    if (_doneBadge) {
+      return BarCta(kind: CtaKind.done, label: t.ctaDone, mode: mode);
+    }
+
+    final slide = mode != WorkMode.brew;
     return BarCta(
-      kind: _doneBadge ? CtaKind.done : CtaKind.start,
-      label: _doneBadge ? t.ctaDone : t.ctaStart,
+      kind: CtaKind.start,
+      label: slide ? t.slideToStart : t.startMode(_modeShort(t, mode)),
       mode: mode,
       busy: _awaitingBusy != null,
-      onTap: () {
-        _awaitBusy(true);
-        unawaited(_run(mode));
-      },
+      slideToConfirm: slide,
+      onTap: _awaitingBusy != null
+          ? null
+          : () => unawaited(_requestStart(mode)),
     );
   }
 }
@@ -762,45 +816,59 @@ class _ErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final time = at;
-    return KTap(
-      onTap: onDismiss,
-      scale: 0.98,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: ShapeDecoration(
-          color: const Color(0x24D63B2F),
-          shape: kSquircle(
-            K.rCard,
-            side: const BorderSide(color: Color(0x59FF7052)),
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: ShapeDecoration(
+        color: const Color(0x24D63B2F),
+        shape: kSquircle(
+          K.rCard,
+          side: const BorderSide(color: Color(0x59FF7052)),
         ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.error_outline_rounded,
-              color: Color(0xFFFF7052),
-              size: 18,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFFF7052),
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  error.label(t),
+                  style: const TextStyle(color: K.text, fontSize: 13),
+                ),
+                if (time != null)
                   Text(
-                    error.label(t),
-                    style: const TextStyle(color: K.text, fontSize: 13),
+                    '${_two(time.hour)}:${_two(time.minute)} · '
+                    '${t.errCode(error.code)}',
+                    style: const TextStyle(color: K.textDim, fontSize: 11),
                   ),
-                  if (time != null)
-                    Text(
-                      '${_two(time.hour)}:${_two(time.minute)} · '
-                      '${t.errCode(error.code)}',
-                      style: const TextStyle(color: K.textDim, fontSize: 11),
-                    ),
-                ],
+              ],
+            ),
+          ),
+          if (onDismiss != null) ...[
+            const SizedBox(width: 8),
+            KTap(
+              onTap: onDismiss,
+              semanticLabel: t.checkAgain,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                child: Text(
+                  t.checkAgain,
+                  style: const TextStyle(
+                    color: Color(0xFFFF9B83),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }

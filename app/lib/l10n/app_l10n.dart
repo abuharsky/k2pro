@@ -160,13 +160,13 @@ abstract class AppL10n {
   /// No description provided for @search.
   ///
   /// In en, this message translates to:
-  /// **'Search'**
+  /// **'Search again'**
   String get search;
 
   /// No description provided for @showAll.
   ///
   /// In en, this message translates to:
-  /// **'all'**
+  /// **'All BLE'**
   String get showAll;
 
   /// No description provided for @rssi.
@@ -652,7 +652,7 @@ abstract class AppL10n {
   /// No description provided for @pourTitle.
   ///
   /// In en, this message translates to:
-  /// **'Pour'**
+  /// **'Full pour'**
   String get pourTitle;
 
   /// No description provided for @extractionNote.
@@ -682,7 +682,7 @@ abstract class AppL10n {
   /// No description provided for @timer.
   ///
   /// In en, this message translates to:
-  /// **'Timer'**
+  /// **'Scheduled start'**
   String get timer;
 
   /// No description provided for @timerOff.
@@ -784,7 +784,7 @@ abstract class AppL10n {
   /// No description provided for @scheduleHint.
   ///
   /// In en, this message translates to:
-  /// **'The machine heats up by the set time and beeps.'**
+  /// **'The machine starts the selected cycle at this time.'**
   String get scheduleHint;
 
   /// No description provided for @minutesShift.
@@ -838,7 +838,7 @@ abstract class AppL10n {
   /// No description provided for @stepAlarm.
   ///
   /// In en, this message translates to:
-  /// **'Timer'**
+  /// **'Scheduled start'**
   String get stepAlarm;
 
   /// No description provided for @stepPause.
@@ -850,7 +850,7 @@ abstract class AppL10n {
   /// No description provided for @cancelAlarm.
   ///
   /// In en, this message translates to:
-  /// **'Cancel timer'**
+  /// **'Cancel scheduled start'**
   String get cancelAlarm;
 
   /// No description provided for @pressure.
@@ -880,7 +880,7 @@ abstract class AppL10n {
   /// No description provided for @modeHeatAndBrewDesc.
   ///
   /// In en, this message translates to:
-  /// **'the full brewing cycle'**
+  /// **'heats the water first, then brews'**
   String get modeHeatAndBrewDesc;
 
   /// No description provided for @modeBrewDesc.
@@ -1032,6 +1032,168 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Available'**
   String get deviceAvailable;
+
+  /// No description provided for @scheduleToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get scheduleToday;
+
+  /// No description provided for @scheduleTomorrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Tomorrow'**
+  String get scheduleTomorrow;
+
+  /// No description provided for @scheduleStarts.
+  ///
+  /// In en, this message translates to:
+  /// **'{day} at {time}, the machine will start: {mode}.'**
+  String scheduleStarts(String day, String time, String mode);
+
+  /// No description provided for @confirmScheduledStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable scheduled start?'**
+  String get confirmScheduledStart;
+
+  /// No description provided for @scheduledStartWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'The machine will start unattended. Make sure it is upright, filled with water, and ready to run.'**
+  String get scheduledStartWarning;
+
+  /// No description provided for @enable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get enable;
+
+  /// No description provided for @slideToStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Slide to start'**
+  String get slideToStart;
+
+  /// No description provided for @holdToStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold to start'**
+  String get holdToStart;
+
+  /// No description provided for @startMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Start · {mode}'**
+  String startMode(String mode);
+
+  /// No description provided for @lowBatteryStartTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Low battery'**
+  String get lowBatteryStartTitle;
+
+  /// No description provided for @lowBatteryStartBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The battery may not complete the heating cycle. Continue anyway?'**
+  String get lowBatteryStartBody;
+
+  /// No description provided for @startAnyway.
+  ///
+  /// In en, this message translates to:
+  /// **'Start anyway'**
+  String get startAnyway;
+
+  /// No description provided for @faultAddWater.
+  ///
+  /// In en, this message translates to:
+  /// **'Add water'**
+  String get faultAddWater;
+
+  /// No description provided for @faultCoolDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Let it cool down'**
+  String get faultCoolDown;
+
+  /// No description provided for @faultService.
+  ///
+  /// In en, this message translates to:
+  /// **'Service required'**
+  String get faultService;
+
+  /// No description provided for @faultCharge.
+  ///
+  /// In en, this message translates to:
+  /// **'Charge the machine'**
+  String get faultCharge;
+
+  /// No description provided for @checkAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Check again'**
+  String get checkAgain;
+
+  /// No description provided for @secondsRemaining.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} s left'**
+  String secondsRemaining(int value);
+
+  /// No description provided for @secondsOf.
+  ///
+  /// In en, this message translates to:
+  /// **'{value}/{total} s'**
+  String secondsOf(int value, int total);
+
+  /// No description provided for @temperatureProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{current}/{target}{unit}'**
+  String temperatureProgress(int current, int target, String unit);
+
+  /// No description provided for @temperatureUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'Temperature unit'**
+  String get temperatureUnit;
+
+  /// No description provided for @sectionOverview.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get sectionOverview;
+
+  /// No description provided for @sectionApp.
+  ///
+  /// In en, this message translates to:
+  /// **'App'**
+  String get sectionApp;
+
+  /// No description provided for @openDeviceSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Machine settings'**
+  String get openDeviceSettings;
+
+  /// No description provided for @openDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Bluetooth devices'**
+  String get openDevices;
+
+  /// No description provided for @increase.
+  ///
+  /// In en, this message translates to:
+  /// **'Increase'**
+  String get increase;
+
+  /// No description provided for @decrease.
+  ///
+  /// In en, this message translates to:
+  /// **'Decrease'**
+  String get decrease;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

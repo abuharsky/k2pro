@@ -40,6 +40,15 @@ extension MachineErrorL10n on MachineError {
     MachineError.lowBatteryHot => t.errLowBatteryHot,
     MachineError.lowBattery => t.errLowBattery,
   };
+
+  /// Что человеку нужно сделать до следующего запуска.
+  String action(AppL10n t) => switch (this) {
+    MachineError.none => t.checkAgain,
+    MachineError.dryBurning => t.faultAddWater,
+    MachineError.batteryOverheating => t.faultCoolDown,
+    MachineError.heaterShortCircuit => t.faultService,
+    MachineError.lowBatteryHot || MachineError.lowBattery => t.faultCharge,
+  };
 }
 
 extension BrewPhaseL10n on BrewPhase {

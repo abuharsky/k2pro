@@ -104,9 +104,17 @@ class MockTransport implements K2Transport {
     _setLink(LinkState.disconnected);
   }
 
+  /// Спящая машина: подключение и подписку принимает, кадры глотает молча.
+  ///
+  /// Ровно то, что PCM03SMAX делает в спящем режиме, — и то, на чём приложение
+  /// вставало колом: опрос уходил в пустоту, держа линию по четыре секунды за
+  /// запрос, а нажатая кнопка ждала своей очереди за ним.
+  bool mute = false;
+
   @override
   Future<void> write(Uint8List frame) async {
     sent.add(Uint8List.fromList(frame));
+    if (mute) return;
     // Разбираем как приходящий кадр, подменив стартовый байт.
     final rx = Uint8List.fromList(frame);
     final cmd = rx[4];
@@ -198,6 +206,7 @@ class MockTransport implements K2Transport {
   }
 
   void _reply(int cmd, List<int> payload) {
+    if (mute) return;
     final total = kHeaderLen + payload.length;
     final lenHi = (total >> 8) & 0x3F;
     final lenLo = total & 0xFF;

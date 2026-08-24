@@ -40,10 +40,10 @@ class AppL10nRu extends AppL10n {
   String get searching => 'Ищем…';
 
   @override
-  String get search => 'Искать';
+  String get search => 'Искать снова';
 
   @override
-  String get showAll => 'все';
+  String get showAll => 'Все BLE';
 
   @override
   String rssi(int value) {
@@ -211,7 +211,7 @@ class AppL10nRu extends AppL10n {
   String get scheduleTone => 'Сигнал';
 
   @override
-  String get modeHeatAndBrew => 'Нагрев и пролив';
+  String get modeHeatAndBrew => 'Нагрев + пролив';
 
   @override
   String get modeHeat => 'Нагрев';
@@ -296,7 +296,7 @@ class AppL10nRu extends AppL10n {
   }
 
   @override
-  String get pourTitle => 'Пролив';
+  String get pourTitle => 'Весь пролив';
 
   @override
   String get extractionNote =>
@@ -314,7 +314,7 @@ class AppL10nRu extends AppL10n {
   String get moreSettings => 'Ещё…';
 
   @override
-  String get timer => 'Таймер';
+  String get timer => 'Запуск по времени';
 
   @override
   String get timerOff => 'Выкл';
@@ -365,8 +365,7 @@ class AppL10nRu extends AppL10n {
   String get pourTimeout => 'Тайм-аут пролива';
 
   @override
-  String get scheduleHint =>
-      'Машина нагреется к заданному времени и подаст сигнал.';
+  String get scheduleHint => 'В это время машина начнёт выбранный цикл.';
 
   @override
   String minutesShift(String value) {
@@ -395,13 +394,13 @@ class AppL10nRu extends AppL10n {
   String get stepWater => 'Вода';
 
   @override
-  String get stepAlarm => 'Таймер';
+  String get stepAlarm => 'Запуск';
 
   @override
   String get stepPause => 'Пауза';
 
   @override
-  String get cancelAlarm => 'Отменить таймер';
+  String get cancelAlarm => 'Отменить запуск';
 
   @override
   String get pressure => 'Давление';
@@ -417,7 +416,7 @@ class AppL10nRu extends AppL10n {
   String get modeHeatDesc => 'только нагрев воды до заданной температуры';
 
   @override
-  String get modeHeatAndBrewDesc => 'полный цикл приготовления';
+  String get modeHeatAndBrewDesc => 'сначала нагрев воды, затем пролив';
 
   @override
   String get modeBrewDesc => 'пролив без нагрева воды';
@@ -498,4 +497,97 @@ class AppL10nRu extends AppL10n {
 
   @override
   String get deviceAvailable => 'Доступна';
+
+  @override
+  String get scheduleToday => 'Сегодня';
+
+  @override
+  String get scheduleTomorrow => 'Завтра';
+
+  @override
+  String scheduleStarts(String day, String time, String mode) {
+    return '$day, в $time машина запустит режим «$mode».';
+  }
+
+  @override
+  String get confirmScheduledStart => 'Включить запуск по времени?';
+
+  @override
+  String get scheduledStartWarning =>
+      'Машина запустится без вашего участия. Убедитесь, что она стоит вертикально, заполнена водой и готова к работе.';
+
+  @override
+  String get enable => 'Включить';
+
+  @override
+  String get slideToStart => 'Проведите для запуска';
+
+  @override
+  String get holdToStart => 'Удерживайте для запуска';
+
+  @override
+  String startMode(String mode) {
+    return 'Старт · $mode';
+  }
+
+  @override
+  String get lowBatteryStartTitle => 'Низкий заряд';
+
+  @override
+  String get lowBatteryStartBody =>
+      'Заряда может не хватить на полный нагрев. Всё равно продолжить?';
+
+  @override
+  String get startAnyway => 'Всё равно запустить';
+
+  @override
+  String get faultAddWater => 'Добавьте воду';
+
+  @override
+  String get faultCoolDown => 'Дайте машине остыть';
+
+  @override
+  String get faultService => 'Нужен сервис';
+
+  @override
+  String get faultCharge => 'Зарядите машину';
+
+  @override
+  String get checkAgain => 'Проверить';
+
+  @override
+  String secondsRemaining(int value) {
+    return 'осталось $value с';
+  }
+
+  @override
+  String secondsOf(int value, int total) {
+    return '$value/$total с';
+  }
+
+  @override
+  String temperatureProgress(int current, int target, String unit) {
+    return '$current/$target$unit';
+  }
+
+  @override
+  String get temperatureUnit => 'Единицы температуры';
+
+  @override
+  String get sectionOverview => 'Обзор';
+
+  @override
+  String get sectionApp => 'Приложение';
+
+  @override
+  String get openDeviceSettings => 'Настройки машины';
+
+  @override
+  String get openDevices => 'Устройства Bluetooth';
+
+  @override
+  String get increase => 'Увеличить';
+
+  @override
+  String get decrease => 'Уменьшить';
 }

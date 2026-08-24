@@ -40,10 +40,10 @@ class AppL10nEn extends AppL10n {
   String get searching => 'Searching…';
 
   @override
-  String get search => 'Search';
+  String get search => 'Search again';
 
   @override
-  String get showAll => 'all';
+  String get showAll => 'All BLE';
 
   @override
   String rssi(int value) {
@@ -296,7 +296,7 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String get pourTitle => 'Pour';
+  String get pourTitle => 'Full pour';
 
   @override
   String get extractionNote =>
@@ -314,7 +314,7 @@ class AppL10nEn extends AppL10n {
   String get moreSettings => 'More…';
 
   @override
-  String get timer => 'Timer';
+  String get timer => 'Scheduled start';
 
   @override
   String get timerOff => 'Off';
@@ -365,7 +365,8 @@ class AppL10nEn extends AppL10n {
   String get pourTimeout => 'Pour timeout';
 
   @override
-  String get scheduleHint => 'The machine heats up by the set time and beeps.';
+  String get scheduleHint =>
+      'The machine starts the selected cycle at this time.';
 
   @override
   String minutesShift(String value) {
@@ -394,13 +395,13 @@ class AppL10nEn extends AppL10n {
   String get stepWater => 'Water';
 
   @override
-  String get stepAlarm => 'Timer';
+  String get stepAlarm => 'Scheduled start';
 
   @override
   String get stepPause => 'Pause';
 
   @override
-  String get cancelAlarm => 'Cancel timer';
+  String get cancelAlarm => 'Cancel scheduled start';
 
   @override
   String get pressure => 'Pressure';
@@ -416,7 +417,7 @@ class AppL10nEn extends AppL10n {
   String get modeHeatDesc => 'water heating only, up to the set temperature';
 
   @override
-  String get modeHeatAndBrewDesc => 'the full brewing cycle';
+  String get modeHeatAndBrewDesc => 'heats the water first, then brews';
 
   @override
   String get modeBrewDesc => 'pour without heating the water';
@@ -497,4 +498,97 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get deviceAvailable => 'Available';
+
+  @override
+  String get scheduleToday => 'Today';
+
+  @override
+  String get scheduleTomorrow => 'Tomorrow';
+
+  @override
+  String scheduleStarts(String day, String time, String mode) {
+    return '$day at $time, the machine will start: $mode.';
+  }
+
+  @override
+  String get confirmScheduledStart => 'Enable scheduled start?';
+
+  @override
+  String get scheduledStartWarning =>
+      'The machine will start unattended. Make sure it is upright, filled with water, and ready to run.';
+
+  @override
+  String get enable => 'Enable';
+
+  @override
+  String get slideToStart => 'Slide to start';
+
+  @override
+  String get holdToStart => 'Hold to start';
+
+  @override
+  String startMode(String mode) {
+    return 'Start · $mode';
+  }
+
+  @override
+  String get lowBatteryStartTitle => 'Low battery';
+
+  @override
+  String get lowBatteryStartBody =>
+      'The battery may not complete the heating cycle. Continue anyway?';
+
+  @override
+  String get startAnyway => 'Start anyway';
+
+  @override
+  String get faultAddWater => 'Add water';
+
+  @override
+  String get faultCoolDown => 'Let it cool down';
+
+  @override
+  String get faultService => 'Service required';
+
+  @override
+  String get faultCharge => 'Charge the machine';
+
+  @override
+  String get checkAgain => 'Check again';
+
+  @override
+  String secondsRemaining(int value) {
+    return '$value s left';
+  }
+
+  @override
+  String secondsOf(int value, int total) {
+    return '$value/$total s';
+  }
+
+  @override
+  String temperatureProgress(int current, int target, String unit) {
+    return '$current/$target$unit';
+  }
+
+  @override
+  String get temperatureUnit => 'Temperature unit';
+
+  @override
+  String get sectionOverview => 'Overview';
+
+  @override
+  String get sectionApp => 'App';
+
+  @override
+  String get openDeviceSettings => 'Machine settings';
+
+  @override
+  String get openDevices => 'Bluetooth devices';
+
+  @override
+  String get increase => 'Increase';
+
+  @override
+  String get decrease => 'Decrease';
 }
