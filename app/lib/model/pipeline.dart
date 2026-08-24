@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import '../ble/cycle.dart';
 import '../ble/k2_device.dart';
 import '../ble/protocol.dart';
 import '../l10n/app_l10n.dart';
@@ -300,14 +301,30 @@ PipelineModel buildPipeline({
 }
 
 /// Что предложить единственной кнопкой внизу.
+///
+/// Одна на экран телефона и на часы: раньше их было две, и расходились они
+/// именно там, где дороже всего, — в ожидании подтверждения после нажатия.
 CtaKind ctaKindOf(K2Device d, {required bool armed, required WorkMode mode}) {
   if (!d.isConnected) return CtaKind.connect;
-  if (d.isBusy) return CtaKind.stop;
+  switch (d.cycleState) {
+    // Идёт цикл: единственное осмысленное действие — остановить.
+    case CycleState.running:
+    case CycleState.stopping:
+      return CtaKind.stop;
+    // Итог цикла держится несколько секунд и уступает место пуску.
+    case CycleState.finished:
+      return CtaKind.done;
+    // Кадр пуска в пути: кнопка та же, но с ожиданием.
+    case CycleState.starting:
+      return CtaKind.start;
+    case CycleState.idle:
+    case CycleState.faulted:
+      break;
+  }
   // Машина ждёт своего часа: единственное осмысленное действие — снять
   // ожидание, иначе она всё равно запустится сама.
   if (armed) return CtaKind.cancelAlarm;
   if (faultBlocksMode(d.lastFault, mode)) return CtaKind.blocked;
-  if (d.status?.state.isDone ?? false) return CtaKind.done;
   return CtaKind.start;
 }
 

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../model/brew_phase.dart';
 import '../model/recipe.dart';
 import 'protocol.dart';
+import 'cycle.dart';
 import 'session.dart';
 import 'trace.dart';
 import 'transport.dart';
@@ -161,6 +162,32 @@ class K2Device extends ChangeNotifier {
 
   SessionState get sessionState => _session.state;
 
+  late final Cycle _cycle = Cycle(
+    onEnter: (from, to) {
+      // Цикл кончился — прежние оценки фаз к следующему отношения не имеют.
+      if (to == CycleState.idle) {
+        // И заново сверяемся с машиной: в покой можно вернуться по таймауту
+        // или по прочитанной ошибке, а она при этом продолжает греть. Без
+        // сброса следующая телеметрия не считалась бы сменой, и кнопка
+        // предлагала бы пуск работающей машине.
+        _cycleSaw = null;
+        _phases.reset();
+        progress = BrewProgress.idle;
+      }
+      notifyListeners();
+    },
+    log: _log,
+  );
+
+  /// Где сейчас цикл заваривания. Один на экран, часы и трассу.
+  CycleState get cycleState => _cycle.state;
+
+  /// Состояние машины, каким его видел цикл в прошлый раз. Событие рождает
+  /// смена, а не кадр: пока наш 0x02 в пути, машина повторяет прошлое, и
+  /// принимать это за ответ нельзя. После обрыва обнуляется — за время
+  /// молчания машина могла и заработать, и встать.
+  MachineState? _cycleSaw;
+
   int get _linkGen => _session.generation;
 
   /// Побочные действия перехода. Всё, что раньше висело на присваиваниях
@@ -196,6 +223,8 @@ class K2Device extends ChangeNotifier {
     _waiters.clear();
     _lastTelemetryAt = null;
     _linkedAt = null;
+    _cycleSaw = null;
+    _cycle.fire(CycleEvent.linkLost);
     _phases.reset();
     progress = BrewProgress.idle;
     _ticker?.cancel();
@@ -547,6 +576,18 @@ class K2Device extends ChangeNotifier {
             lastFault = s.error;
             lastFaultAt = _now();
           }
+          // События цикла — по смене состояния, а не по каждому кадру: пока
+          // кадр пуска в пути, машина ещё повторяет прошлое состояние, и
+          // принимать его за ответ нельзя.
+          if (_cycleSaw != s.state) {
+            _cycleSaw = s.state;
+            _cycle.fire(switch (s.state) {
+              final x when x.isDone => CycleEvent.machineDone,
+              final x when x.isBusy => CycleEvent.machineBusy,
+              _ => CycleEvent.machineIdle,
+            });
+          }
+          if (s.error != MachineError.none) _cycle.fire(CycleEvent.machineFault);
           _phases.onState(s.state, now: _now());
           if (_spentAt != null) {
             if (s.state.isBusy) {
@@ -626,6 +667,7 @@ class K2Device extends ChangeNotifier {
     if (lastFault == MachineError.none) return;
     lastFault = MachineError.none;
     lastFaultAt = null;
+    _cycle.fire(CycleEvent.faultCleared);
     notifyListeners();
   }
 
@@ -734,20 +776,23 @@ class K2Device extends ChangeNotifier {
 
   // ---- команды ----------------------------------------------------------
 
-  Future<void> heatAndBrew() => _exclusive(
-    urgent: true,
-    () => _send(cmdSetWorkState(true, WorkMode.heatAndBrew)),
-  );
-  Future<void> heat() =>
-      _exclusive(urgent: true, () => _send(cmdSetWorkState(true, WorkMode.heat)));
-  Future<void> brew() =>
-      _exclusive(urgent: true, () => _send(cmdSetWorkState(true, WorkMode.brew)));
+  Future<void> heatAndBrew() => _start(WorkMode.heatAndBrew);
+  Future<void> heat() => _start(WorkMode.heat);
+  Future<void> brew() => _start(WorkMode.brew);
+
+  /// Пуск в заданном режиме. Ожидание на кнопке заводится здесь, а не на
+  /// экране: нажать могут и с часов, а ждать при этом должны оба.
+  Future<void> _start(WorkMode mode) {
+    _cycle.fire(CycleEvent.startRequested);
+    return _exclusive(urgent: true, () => _send(cmdSetWorkState(true, mode)));
+  }
 
   /// Стоп — единственная команда, которую нельзя терять: 0x02 машина
   /// подтверждает эхом `01`, но раньше мы его не слушали, и потерянный кадр
   /// оставлял машину греть, а человека — тянуться к кнопке на корпусе.
   /// Повтор безопасен: остановленная машина на второй стоп ничего не сделает.
   Future<void> stop() async {
+    _cycle.fire(CycleEvent.stopRequested);
     final ack = await _request(cmdStop(), Cmd.setWorkState, tries: 3, urgent: true);
     if (ack == null) lastError = 'машина не подтвердила остановку';
   }
@@ -878,6 +923,9 @@ class K2Device extends ChangeNotifier {
     _ticker = null;
     _scheduleDebounce?.cancel();
     _scheduleDebounce = null;
+    // Таймер переподключения переживал dispose и будил уже закрытый транспорт.
+    _cancelReconnect();
+    _cycle.dispose();
     unawaited(_linkSub.cancel());
     unawaited(_notifySub.cancel());
     unawaited(_scanSub.cancel());

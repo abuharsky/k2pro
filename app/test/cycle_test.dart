@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:k2pro/ble/k2_device.dart';
 import 'package:k2pro/ble/mock_transport.dart';
+import 'package:k2pro/ble/cycle.dart';
+import 'package:k2pro/model/brew_phase.dart';
 import 'package:k2pro/ble/protocol.dart';
 import 'package:k2pro/main.dart';
 import 'package:k2pro/store/prefs.dart';
@@ -35,6 +37,23 @@ void main() {
   Future<void> settle(WidgetTester tester) async {
     for (var i = 0; i < 12; i++) {
       await tester.pump(const Duration(milliseconds: 250));
+    }
+  }
+
+  /// Устройство на моке с часами теста, погашенное в конце — иначе тикер
+  /// телеметрии переживает тело теста, и проверка «таймеров не осталось»
+  /// падает раньше, чем успевает отработать teardown.
+  Future<void> withDevice(
+    WidgetTester tester,
+    Future<void> Function(MockTransport mock, K2Device device) body,
+  ) async {
+    final mock = MockTransport();
+    final device = K2Device(mock, now: () => tester.binding.clock.now());
+    try {
+      await body(mock, device);
+    } finally {
+      device.dispose();
+      await tester.pump();
     }
   }
 
@@ -123,6 +142,7 @@ void main() {
       );
       expect(payloadOf(mock, Cmd.setWorkState)[0], 1, reason: 'пуск');
       expect(device.isBusy, isTrue);
+      expect(device.cycleState, CycleState.running);
       expect(find.text('Stop'), findsOneWidget);
 
       // --- стоп -----------------------------------------------------------
@@ -131,6 +151,7 @@ void main() {
 
       expect(payloadOf(mock, Cmd.setWorkState)[0], 0, reason: 'останов');
       expect(device.isBusy, isFalse);
+      expect(device.cycleState, CycleState.idle);
       expect(find.text('Slide to start'), findsOneWidget);
     } finally {
       device.dispose();
@@ -179,5 +200,95 @@ void main() {
     for (var i = 0; i < 12; i++) {
       await tester.pump(const Duration(milliseconds: 250));
     }
+  });
+
+  testWidgets('цикл: от нажатия до подтверждения кнопка ждёт', (tester) async {
+    await withDevice(tester, (mock, device) async {
+    device.connect('mock');
+    await settle(tester);
+    expect(device.cycleState, CycleState.idle);
+
+    device.heat();
+    await tester.pump();
+    // Кадр только ушёл, машина ещё ничего не сказала.
+    expect(device.cycleState, CycleState.starting);
+    expect(device.cycleState.isPending, isTrue);
+
+    await settle(tester);
+    expect(device.cycleState, CycleState.running);
+    expect(device.cycleState.isPending, isFalse);
+    });
+  });
+
+  testWidgets('потерянный кадр пуска отпускает кнопку через таймаут', (
+    tester,
+  ) async {
+    // Машина уснула сразу после подключения: 0x02 уходит в пустоту.
+    await withDevice(tester, (mock, device) async {
+    device.connect('mock');
+    await settle(tester);
+    mock.mute = true;
+
+    device.heat();
+    await tester.pump();
+    expect(device.cycleState, CycleState.starting);
+
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+    expect(
+      device.cycleState,
+      CycleState.idle,
+      reason: 'вечный спиннер хуже неотработавшей кнопки',
+    );
+    });
+  });
+
+  testWidgets('нет воды посреди цикла: цикл оборван, ошибка на месте', (
+    tester,
+  ) async {
+    // Живая жалоба: «воды не было, она запикала, но в приложении ошибка не была
+    // показана». Код ошибки живёт в телеметрии один пакет — если молча вернуться
+    // в покой, показывать становится нечего.
+    await withDevice(tester, (mock, device) async {
+    device.connect('mock');
+    await settle(tester);
+    device.heat();
+    await settle(tester);
+    expect(device.cycleState, CycleState.running);
+
+    // Пикнула и встала.
+    mock.fault = MachineError.dryBurning;
+    await tester.pump(const Duration(milliseconds: 600));
+    mock.fault = MachineError.none;
+    await settle(tester);
+
+    expect(device.cycleState, CycleState.faulted);
+    expect(device.lastFault, MachineError.dryBurning);
+
+    // «Готово» после такого не показываем: цикла не было.
+    expect(device.cycleState, isNot(CycleState.finished));
+
+    device.clearFault();
+    await tester.pump();
+    expect(device.cycleState, CycleState.idle);
+    });
+  });
+
+  testWidgets('обрыв связи посреди цикла возвращает экран в покой', (
+    tester,
+  ) async {
+    await withDevice(tester, (mock, device) async {
+    device.connect('mock');
+    await settle(tester);
+    device.heat();
+    await settle(tester);
+    expect(device.cycleState, CycleState.running);
+
+    mock.dropLink();
+    await tester.pump();
+    expect(device.cycleState, CycleState.idle);
+    expect(device.progress.phase, BrewPhase.idle);
+    });
   });
 }

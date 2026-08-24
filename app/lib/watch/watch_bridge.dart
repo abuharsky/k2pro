@@ -45,14 +45,6 @@ class WatchBridge {
   Timer? _throttle;
   bool _pending = false;
 
-  /// Пуск или остановка ушли, а машина ещё не отчиталась о смене состояния.
-  ///
-  /// Держим это здесь, а не на часах: там про задержки BLE ничего не известно,
-  /// а без отметки нажатие выглядит потерянным — кнопка молчит несколько
-  /// секунд. Таймаут обязателен, команда может и потеряться.
-  bool? _awaiting;
-  Timer? _awaitTimeout;
-
   /// Идёт поиск. Машина об этом не сообщает, а часам показать надо —
   /// поэтому засекаем сами.
   Timer? _scanTimer;
@@ -69,30 +61,11 @@ class WatchBridge {
     editor.removeListener(_schedulePush);
     _throttle?.cancel();
     _scanTimer?.cancel();
-    _awaitTimeout?.cancel();
-  }
-
-  /// Ждать подтверждения от машины.
-  void _await(bool expected) {
-    _awaiting = expected;
-    _awaitTimeout?.cancel();
-    _awaitTimeout = Timer(const Duration(seconds: 8), () {
-      _awaiting = null;
-      _schedulePush();
-    });
-  }
-
-  /// Машина пришла в ожидаемое состояние — ждать больше нечего.
-  void _syncAwaiting() {
-    if (_awaiting == null || device.isBusy != _awaiting) return;
-    _awaitTimeout?.cancel();
-    _awaiting = null;
   }
 
   // ---- телефон → часы ----------------------------------------------------
 
   void _schedulePush() {
-    _syncAwaiting();
     if (_throttle != null) {
       _pending = true;
       return;
@@ -122,7 +95,7 @@ class WatchBridge {
         prefs: prefs,
         recipe: editor.active,
         scanning: _scanning,
-        ctaBusy: _awaiting != null,
+        ctaBusy: device.cycleState.isPending,
       );
     } catch (e, st) {
       // Снимок не должен ронять приложение на телефоне: часы — не главное.
@@ -191,13 +164,12 @@ class WatchBridge {
         await device.disconnect();
 
       case 'start':
-        _await(true);
-        _schedulePush();
+        // Ожидание подтверждения считает машина цикла — она же и толкнёт
+        // снимок, как только состояние сменится. Своей копии здесь больше нет:
+        // экран и часы расходились ровно на ней.
         await _start();
 
       case 'stop':
-        _await(false);
-        _schedulePush();
         await device.stop();
 
       case 'setStep':

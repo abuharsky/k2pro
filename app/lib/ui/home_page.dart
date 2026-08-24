@@ -10,6 +10,7 @@ import '../l10n/app_l10n.dart';
 import '../l10n/l10n_ext.dart';
 import '../model/brew_phase.dart';
 import '../model/pipeline.dart' as pipe;
+import '../model/pipeline.dart' show CtaKind;
 import '../model/recipe.dart';
 import '../store/prefs.dart';
 import '../store/recipe_editor.dart';
@@ -55,18 +56,6 @@ class _HomePageState extends State<HomePage> {
   late final RecipeEditor _editor;
   late final bool _ownsEditor;
 
-  /// Пуск или остановка отправлены, но машина ещё не отчиталась о смене
-  /// состояния: на кнопке крутится спиннер, иначе тап выглядит потерянным.
-  bool? _awaitingBusy;
-  Timer? _awaitTimeout;
-
-  /// «Готово ✓» на кнопке. Машина держит состояние «готово» до следующей
-  /// команды, а зелёная кнопка — это итог цикла: через три секунды она
-  /// возвращается в обычный пуск.
-  bool _doneBadge = false;
-  bool _doneSeen = false;
-  Timer? _doneTimer;
-
   @override
   void initState() {
     super.initState();
@@ -74,18 +63,12 @@ class _HomePageState extends State<HomePage> {
     _editor =
         widget.editor ??
         RecipeEditor(device: widget.device, prefs: widget.prefs);
-    widget.device.addListener(_syncAwaiting);
-    widget.device.addListener(_syncDone);
     WidgetsBinding.instance.addPostFrameCallback((_) => _autoConnect());
   }
 
   @override
   void dispose() {
-    widget.device.removeListener(_syncAwaiting);
-    widget.device.removeListener(_syncDone);
     if (_ownsEditor) _editor.dispose();
-    _awaitTimeout?.cancel();
-    _doneTimer?.cancel();
     super.dispose();
   }
 
@@ -184,7 +167,6 @@ class _HomePageState extends State<HomePage> {
       );
       if (proceed != true || !mounted) return;
     }
-    _awaitBusy(true);
     unawaited(_run(mode));
   }
 
@@ -274,48 +256,6 @@ class _HomePageState extends State<HomePage> {
       ],
     );
     if (name != null && name.isNotEmpty) widget.prefs.deviceName = name;
-  }
-
-  /// Ждать подтверждения от машины. Таймаут нужен: команда может потеряться,
-  /// и вечный спиннер был бы хуже, чем просто неотработавшая кнопка.
-  void _awaitBusy(bool expected) {
-    Trace.instance.ui('жду от машины isBusy=$expected');
-    setState(() => _awaitingBusy = expected);
-    _awaitTimeout?.cancel();
-    _awaitTimeout = Timer(const Duration(seconds: 8), () {
-      Trace.instance.ui('ожидание сорвалось: машина не подтвердила за 8 с');
-      if (mounted) setState(() => _awaitingBusy = null);
-    });
-  }
-
-  void _syncAwaiting() {
-    final want = _awaitingBusy;
-    if (want == null || widget.device.isBusy != want) return;
-    Trace.instance.ui('машина подтвердила isBusy=$want, экран разблокирован');
-    _awaitTimeout?.cancel();
-    setState(() => _awaitingBusy = null);
-  }
-
-  /// Зелёное «Готово ✓» живёт ровно три секунды на цикл.
-  void _syncDone() {
-    final done = widget.device.status?.state.isDone ?? false;
-    if (!done) {
-      if (!_doneSeen && !_doneBadge) return;
-      _doneTimer?.cancel();
-      _doneTimer = null;
-      setState(() {
-        _doneSeen = false;
-        _doneBadge = false;
-      });
-      return;
-    }
-    if (_doneSeen) return;
-    _doneSeen = true;
-    setState(() => _doneBadge = true);
-    _doneTimer = Timer(const Duration(seconds: 3), () {
-      _doneTimer = null;
-      if (mounted) setState(() => _doneBadge = false);
-    });
   }
 
   /// Любой запуск: сначала записать уставки, потом пускать.
@@ -733,71 +673,46 @@ class _HomePageState extends State<HomePage> {
 
   /// Главная кнопка: подключиться, снять таймер, старт, стоп или «готово».
   BarCta _cta(AppL10n t, K2Device d, WorkMode mode, bool armed) {
-    if (!d.isConnected) {
-      final busy = d.isSeeking;
-      return BarCta(
-        kind: CtaKind.connect,
-        label: t.connect,
-        mode: mode,
-        busy: busy,
-        onTap: busy ? null : () => _openScan(context),
-      );
-    }
+    final kind = pipe.ctaKindOf(d, armed: armed, mode: mode);
+    // Ожидание — свойство цикла, а не кнопки: команда могла уйти и с часов.
+    final pending = d.cycleState.isPending;
+    final slide = kind == CtaKind.start && mode != WorkMode.brew;
 
-    if (d.isBusy) {
-      final awaiting = _awaitingBusy != null;
-      return BarCta(
-        kind: CtaKind.stop,
-        label: t.ctaStop,
-        mode: mode,
-        busy: awaiting,
-        onTap: awaiting
+    return BarCta(
+      kind: kind,
+      mode: mode,
+      slideToConfirm: slide,
+      busy: switch (kind) {
+        CtaKind.connect => d.isSeeking,
+        CtaKind.start || CtaKind.stop => pending,
+        _ => false,
+      },
+      label: switch (kind) {
+        CtaKind.connect => t.connect,
+        CtaKind.stop => t.ctaStop,
+        CtaKind.done => t.ctaDone,
+        CtaKind.cancelAlarm => t.cancelAlarm,
+        // Последняя ошибка остаётся на экране, пока человек явно не нажмёт
+        // «Проверить». До этого повторный пуск недоступен.
+        CtaKind.blocked => d.lastFault.action(t),
+        CtaKind.start =>
+          slide ? t.slideToStart : t.startMode(_modeShort(t, mode)),
+      },
+      onTap: switch (kind) {
+        CtaKind.connect => d.isSeeking ? null : () => _openScan(context),
+        CtaKind.stop => pending
             ? null
             : () {
                 Trace.instance.ui('ТАП стоп');
-                _awaitBusy(false);
                 unawaited(d.stop());
               },
-      );
-    }
-
-    // Машина ждёт своего часа: единственное осмысленное действие — снять
-    // ожидание, иначе она всё равно запустится сама.
-    if (armed) {
-      return BarCta(
-        kind: CtaKind.cancelAlarm,
-        label: t.cancelAlarm,
-        mode: mode,
-        onTap: () => d.setSchedule(
+        CtaKind.cancelAlarm => () => d.setSchedule(
           d.appointment.copyWith(enabled: false),
           immediate: true,
         ),
-      );
-    }
-
-    // Последняя ошибка остаётся на экране, пока человек явно не нажмёт
-    // «Проверить». До этого повторный потенциально опасный запуск недоступен.
-    final fault = d.lastFault;
-    if (pipe.faultBlocksMode(fault, mode)) {
-      return BarCta(kind: CtaKind.start, label: fault.action(t), mode: mode);
-    }
-
-    // Машина отчиталась «готово»: три секунды показываем итог без второго
-    // скрытого действия. Затем на этом месте снова появится безопасный пуск.
-    if (_doneBadge) {
-      return BarCta(kind: CtaKind.done, label: t.ctaDone, mode: mode);
-    }
-
-    final slide = mode != WorkMode.brew;
-    return BarCta(
-      kind: CtaKind.start,
-      label: slide ? t.slideToStart : t.startMode(_modeShort(t, mode)),
-      mode: mode,
-      busy: _awaitingBusy != null,
-      slideToConfirm: slide,
-      onTap: _awaitingBusy != null
-          ? null
-          : () => unawaited(_requestStart(mode)),
+        CtaKind.start => pending ? null : () => unawaited(_requestStart(mode)),
+        CtaKind.done || CtaKind.blocked => null,
+      },
     );
   }
 }

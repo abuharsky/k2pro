@@ -31,7 +31,9 @@ class MockTransport implements K2Transport {
   int _ext = 70;
   int _battery = 78;
   MachineState _state = MachineState.standby;
-  final MachineError _error = MachineError.none;
+  /// Ошибка, которую машина положит в следующий кадр телеметрии. Живая
+  /// сбрасывает её сама через пакет-другой — здесь это делает тест.
+  MachineError fault = MachineError.none;
   Appointment _appointment = const Appointment.disabled();
 
   /// Всё, что приложение записало. По этому списку видно, сколько кадров ушло
@@ -255,7 +257,7 @@ class MockTransport implements K2Transport {
       0,
       _temp.round(),
       _state.code,
-      _error.code,
+      fault.code,
     ]);
   }
 

@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../ble/protocol.dart';
+import '../../model/pipeline.dart' show CtaKind;
 import '../theme.dart';
 import 'spinner.dart';
-
-/// Что делает главная кнопка экрана.
-enum CtaKind { connect, start, stop, done, cancelAlarm }
 
 /// Главная кнопка: подключиться, старт, стоп, готово, отменить таймер.
 class BarCta {
@@ -147,12 +145,17 @@ class _CtaState extends State<_Cta> with SingleTickerProviderStateMixin {
     final c = widget.cta;
     final style = ModeStyle.of(c.mode);
     final enabled = c.onTap != null;
-    final red = c.kind == CtaKind.stop || c.kind == CtaKind.cancelAlarm;
+    final red =
+        c.kind == CtaKind.stop ||
+        c.kind == CtaKind.cancelAlarm ||
+        c.kind == CtaKind.blocked;
 
     final (List<Color> colors, Color fg, Color glow) = switch (c.kind) {
       // Отмена — тоже остановка ожидания, и она всегда красная.
       CtaKind.stop ||
-      CtaKind.cancelAlarm => (K.stopGrad, K.stopText, const Color(0x73D63B2F)),
+      CtaKind.cancelAlarm ||
+      // Ошибка держит кнопку красной: пока её не прочли, пуск недоступен.
+      CtaKind.blocked => (K.stopGrad, K.stopText, const Color(0x73D63B2F)),
       CtaKind.done => (K.doneGrad, K.doneText, const Color(0x663DA452)),
       _ => (style.gradient, style.onColor, style.glow),
     };

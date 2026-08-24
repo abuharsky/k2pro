@@ -54,7 +54,13 @@ class Trace {
   /// файле, сколько прошло от тапа до `tx` и от `rx` до перерисовки.
   void ui(String what) => log('ui   $what');
 
+  /// Куда дублировать строки трассы. Ставится в диагностических прогонах: там
+  /// нужен ровно тот же поток, что видно на живой машине, но в памяти, а не в
+  /// файле под домашним каталогом.
+  void Function(String)? sink;
+
   void log(String message) {
+    sink?.call(message);
     if (!kDebugMode || inTest) return;
     final line = 'k2|$_stamp|$message';
     debugPrint(line);
