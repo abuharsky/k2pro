@@ -1,0 +1,7 @@
+# Identity of the app and the Apple team. No secrets here — safe for a public repo.
+app_identifier("ru.bukharskiy.k2pro")
+team_id("E6NP5CG2G4")
+
+# The App Store Connect team can differ from the developer-portal team.
+# Left to the env var so a service account can override it without editing code.
+itc_team_id(ENV["ITC_TEAM_ID"]) if ENV["ITC_TEAM_ID"]

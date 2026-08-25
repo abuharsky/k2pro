@@ -1,0 +1,62 @@
+# Tag-driven release to TestFlight. Push a tag like `v1.0.0+1` and this builds,
+# signs, and uploads — no keyboard involved. Nothing here reaches public review.
+#
+# Every secret referenced below is set in the repo's Settings → Secrets and
+# variables → Actions. None live in the tree. See docs/PUBLISHING.md.
+name: iOS · TestFlight
+
+on:
+  push:
+    tags:
+      - "v*" # e.g. v1.0.0+1
+  workflow_dispatch: {} # manual "Run workflow" button as a fallback
+
+# One release at a time; a newer tag cancels an in-flight run.
+concurrency:
+  group: ios-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read # the workflow never writes back to the repo
+
+jobs:
+  testflight:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      CI: "true"
+      # App Store Connect — individual key scoped to this one app.
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      ASC_KEY_P8_BASE64: "true"
+      # match — read-only access to the encrypted signing repo.
+      MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+      ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Set up Ruby (fastlane)
+        uses: ruby/setup-ruby@v1
+        with:
+          working-directory: app/ios
+          bundler-cache: true
+
+      # A leaked key can touch one app and nothing more, but there is still no
+      # reason to ship a broken build: tests gate the upload.
+      - name: Test
+        working-directory: app/ios
+        run: bundle exec fastlane test
+
+      - name: Build & upload to TestFlight
+        working-directory: app/ios
+        run: bundle exec fastlane beta

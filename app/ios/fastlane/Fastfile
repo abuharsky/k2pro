@@ -1,0 +1,98 @@
+# K2 Pro — iOS release automation.
+#
+# The whole point: a git tag triggers a signed build that lands on TestFlight
+# with nobody touching a keyboard. Promotion to the public App Store stays a
+# separate, deliberate lane — see `release`.
+#
+# Secrets are never in this repo. Everything sensitive arrives through the
+# environment (GitHub Actions secrets); see docs/PUBLISHING.md for the list and
+# the security model behind each one.
+
+default_platform(:ios)
+
+# The App Store Connect API key, assembled from three env vars. This is an
+# INDIVIDUAL key scoped to this one app (role: App Manager) — a leak lets an
+# attacker touch k2pro's builds and nothing else: no other app, no certificates
+# (Apple bars individual keys from provisioning endpoints), no sales data.
+def app_store_api_key
+  app_store_connect_api_key(
+    key_id: ENV.fetch("ASC_KEY_ID"),
+    issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+    key_content: ENV.fetch("ASC_KEY_P8"), # the .p8 contents, base64 or raw PEM
+    is_key_content_base64: ENV["ASC_KEY_P8_BASE64"] == "true",
+    in_house: false,
+  )
+end
+
+# Build the Flutter app unsigned, then let Xcode sign with the match profiles.
+# Splitting it this way keeps signing entirely in match's hands — Flutter never
+# sees a certificate.
+def build_signed_ipa(api_key)
+  flutter_root = File.expand_path("../..", __dir__)
+
+  match(api_key: api_key) # installs the distribution cert + both profiles
+
+  sh("cd #{flutter_root.shellescape} && flutter pub get && " \
+     "flutter build ios --release --no-codesign")
+
+  build_app(
+    workspace: "../Runner.xcworkspace",
+    scheme: "Runner",
+    export_method: "app-store",
+    output_directory: File.join(flutter_root, "build", "ios", "ipa"),
+    export_options: {
+      signingStyle: "manual",
+      provisioningProfiles: {
+        "ru.bukharskiy.k2pro" =>
+          ENV["sigh_ru.bukharskiy.k2pro_appstore_profile-name"],
+        "ru.bukharskiy.k2pro.watchkitapp" =>
+          ENV["sigh_ru.bukharskiy.k2pro.watchkitapp_appstore_profile-name"],
+      },
+    },
+  )
+end
+
+platform :ios do
+  desc "Run the Dart test suite — the gate every release passes first"
+  lane :test do
+    flutter_root = File.expand_path("../..", __dir__)
+    sh("cd #{flutter_root.shellescape} && flutter pub get && flutter test")
+  end
+
+  desc "Build a signed IPA and ship it to TestFlight (no public review)"
+  lane :beta do
+    api_key = app_store_api_key
+    build_signed_ipa(api_key)
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true,
+      # No public exposure: this only reaches internal/beta testers.
+    )
+  end
+
+  desc "Promote to the public App Store — deliberate, gated by RELEASE=confirm"
+  lane :release do
+    unless ENV["RELEASE"] == "confirm"
+      UI.user_error!("Public release is gated. Re-run with RELEASE=confirm.")
+    end
+    api_key = app_store_api_key
+    build_signed_ipa(api_key)
+    upload_to_app_store(
+      api_key: api_key,
+      submit_for_review: true,
+      automatic_release: false, # you still press the final button in ASC
+      force: true,              # skip the HTML preview prompt on CI
+      precheck_include_in_app_purchases: false,
+      submission_information: { add_id_info_uses_idfa: false },
+    )
+  end
+
+  desc "LOCAL ONLY: create or renew the signing cert + profiles in the match repo"
+  lane :certificates do
+    if ENV["CI"] == "true"
+      UI.user_error!("Refusing to mint certificates on CI. Run this locally.")
+    end
+    api_key = app_store_api_key
+    match(api_key: api_key, readonly: false)
+  end
+end

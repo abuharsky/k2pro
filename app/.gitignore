@@ -50,3 +50,13 @@ failures/
 # Сборка iOS живёт рядом с проектом, но в репозиторий ей не надо: 100+ МБ
 # машинного вывода, который Xcode пересобирает сам.
 ios/build/
+
+# fastlane
+ios/fastlane/report.xml
+ios/fastlane/Preview.html
+ios/fastlane/screenshots/**/*.png
+ios/fastlane/test_output
+ios/**/*.p8
+ios/**/*.mobileprovision
+ios/**/*.cer
+ios/**/*.p12

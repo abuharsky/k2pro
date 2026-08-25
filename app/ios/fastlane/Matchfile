@@ -1,0 +1,18 @@
+# fastlane match — certificates and provisioning profiles live encrypted in a
+# SEPARATE PRIVATE repo, never in this public one. See docs/PUBLISHING.md.
+#
+# The URL is read from the environment so this file carries no private address.
+git_url(ENV["MATCH_GIT_URL"])
+
+storage_mode("git")
+type("appstore")
+
+# Both bundle IDs the App Store build signs: the phone app and the watch app.
+app_identifier([
+  "ru.bukharskiy.k2pro",
+  "ru.bukharskiy.k2pro.watchkitapp",
+])
+
+# On CI we only ever READ. Generating or renewing certs is a deliberate local
+# act (see the `certificates` lane), so a leaked CI key can never mint one.
+readonly(ENV["CI"] == "true")
