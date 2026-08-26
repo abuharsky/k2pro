@@ -8,29 +8,50 @@
 
 /* Begin PBXBuildFile section */
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
+		14B9D779D446EB6D987CF5FD /* LiveActivityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39466C0D4C07FA2A75DBB870 /* LiveActivityBridge.swift */; };
 		179FFDB0EA342253FFB4AADE /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45DC382A7FB9809F357FECDD /* Theme.swift */; };
+		1F15FEBEC3A29B0848ADC4E7 /* K2ProWatchWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FFCF0FA92A6851AF5C0C5B6 /* K2ProWatchWidgetBundle.swift */; };
+		215C2457B175E235023D58EA /* WidgetStatusWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504F4D0C7AC575DF89E6A4E1 /* WidgetStatusWriter.swift */; };
+		21A719A9AB41846983DD2474 /* K2BrewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08C1BBCCF3FB2C765AD47968 /* K2BrewCard.swift */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
 		3C487580800E8693B5CEC82A /* K2ProWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 29166B577946EFC99D5DBE47 /* K2ProWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4561F229B64C7F0CFA176EA5 /* K2BrewAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58D013F762A8FACB9D9C491B /* K2BrewAttributes.swift */; };
 		45AF9A7C96361F01499FAC19 /* PipelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A986680F4A3686DF28E5D6D /* PipelineView.swift */; };
 		4A717608A907740FF95C8495 /* RunningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA3CD17A64E3E6EA876E52B1 /* RunningView.swift */; };
+		500B2490227611BA1B3E3B77 /* WeightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85341F5ACEB92518A6031423 /* WeightView.swift */; };
+		5877638F0FE05BD9D6C81C00 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 724601FAE414649BD96761BE /* Foundation.framework */; };
 		63D92427B01F4408773B820C /* WatchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1595C5418BBA13705D751DD2 /* WatchBridge.swift */; };
 		67C18416FC9B3FEE0AA2395B /* Snapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0D2F63247AA89E3B21DAC00 /* Snapshot.swift */; };
+		6B203633EAAD0077877BB67E /* WidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 599FDB72231AEAD79899FD9A /* WidgetShared.swift */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
+		74F7A22FACF046E9DEAA891F /* ScaleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28C4FDA3C35ECB471098FF57 /* ScaleView.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
+		82E154A22DE19249FBC94399 /* K2ProLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 24834AFE18C8B96EB53BEE24 /* K2ProLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		905B3A7B856F336516B1DCCB /* K2BrewAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58D013F762A8FACB9D9C491B /* K2BrewAttributes.swift */; };
+		93BB1B3CE39BCFE9AD4298C8 /* K2BrewLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F017A6B11930B8AC5BB1D2 /* K2BrewLiveActivity.swift */; };
 		95BD4A4C5F369A85E760BF54 /* Icons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DC7316CEF207821E3F87182 /* Icons.swift */; };
 		972CA1DFF8E4161893345008 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D62FEB6ADE41F9A1BECBB28 /* Foundation.framework */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		9D6062860839545F96B77550 /* MachinesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5959C799E62AE007AFD6ECFA /* MachinesView.swift */; };
+		A11071050000000000000002 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A11071050000000000000001 /* InfoPlist.xcstrings */; };
+		A11071050000000000000004 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A11071050000000000000003 /* Localizable.xcstrings */; };
+		A3674E2BEB124EB14B200AB2 /* K2BrewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08C1BBCCF3FB2C765AD47968 /* K2BrewCard.swift */; };
 		A53F960BDF4CCC8AEF849017 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AD6C0EB0D5CE5A6309CBAED7 /* Assets.xcassets */; };
 		ACD06A14689E19703C5B25CC /* StepEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2F1850658C4E6E390BC266F /* StepEditorView.swift */; };
 		C21E4D597580731228EC7387 /* K2ProWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 997A922144D77AABA62346E6 /* K2ProWatchApp.swift */; };
+		C55F34224C79E74D1657ED95 /* K2ProWatchWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FC6C50AF1E81BB872E6811D1 /* K2ProWatchWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C898D33A4CF37BA09EBAEA7D /* WidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 599FDB72231AEAD79899FD9A /* WidgetShared.swift */; };
+		D0DC4B8FCE67BC10B8985585 /* PreviewHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 662657AF4C1C066E4B970A46 /* PreviewHarness.swift */; };
 		D24D03A46E151A84ECB1477A /* ModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DCDF4560C3AD29080F39D8 /* ModeView.swift */; };
+		D479043831FE736972C96C3E /* K2ProLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 603D66852EC9F5858D858DB3 /* K2ProLiveActivityBundle.swift */; };
 		D9E2650177557770755BD022 /* WatchLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4EEFCEAFA62278BB8A60793 /* WatchLink.swift */; };
 		DABF82049F0F16B098F6D572 /* GroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF4F7D54F56A5C97FC1F9127 /* GroupView.swift */; };
+		EF0334BAC159F651EB908886 /* K2ProWatchWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D065EE05A9B9C0696C6D3EC /* K2ProWatchWidget.swift */; };
+		F5BF565A99DCCE8643FD5EF1 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DB0A6444842B6626529F7759 /* Foundation.framework */; };
 		FA4275050496558925AFC9BD /* TimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDE1E83199A1362ED655B753 /* TimerView.swift */; };
 /* End PBXBuildFile section */
 
@@ -49,6 +70,20 @@
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
 		};
+		610D34A51CCB8071175F952F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FC29A68A92D7D292BBA8557B;
+			remoteInfo = K2ProLiveActivity;
+		};
+		BBBA0700A396404F22715BC1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3D3057590029FC090998D938;
+			remoteInfo = K2ProWatchWidget;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -60,6 +95,28 @@
 			files = (
 			);
 			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		99B52EFAD027562818034A2A /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				C55F34224C79E74D1657ED95 /* K2ProWatchWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CE7C7EAA696D84E0A64A7683 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				82E154A22DE19249FBC94399 /* K2ProLiveActivity.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		EDECFFEAC48184429AB37C68 /* Embed Watch Content */ = {
@@ -76,23 +133,40 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		08C1BBCCF3FB2C765AD47968 /* K2BrewCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = K2BrewCard.swift; sourceTree = "<group>"; };
 		0DC7316CEF207821E3F87182 /* Icons.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Icons.swift; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		1595C5418BBA13705D751DD2 /* WatchBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchBridge.swift; sourceTree = "<group>"; };
+		1C4E8FAD8B0F8CA919192260 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		24834AFE18C8B96EB53BEE24 /* K2ProLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = K2ProLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		28C4FDA3C35ECB471098FF57 /* ScaleView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScaleView.swift; sourceTree = "<group>"; };
 		29166B577946EFC99D5DBE47 /* K2ProWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = K2ProWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3365756E4F1415E1B189F297 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		39466C0D4C07FA2A75DBB870 /* LiveActivityBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveActivityBridge.swift; sourceTree = "<group>"; };
 		3A986680F4A3686DF28E5D6D /* PipelineView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PipelineView.swift; sourceTree = "<group>"; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
+		3FFCF0FA92A6851AF5C0C5B6 /* K2ProWatchWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = K2ProWatchWidgetBundle.swift; sourceTree = "<group>"; };
 		45DC382A7FB9809F357FECDD /* Theme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		4D62FEB6ADE41F9A1BECBB28 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		504F4D0C7AC575DF89E6A4E1 /* WidgetStatusWriter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetStatusWriter.swift; sourceTree = "<group>"; };
+		58D013F762A8FACB9D9C491B /* K2BrewAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = K2BrewAttributes.swift; sourceTree = "<group>"; };
 		5959C799E62AE007AFD6ECFA /* MachinesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MachinesView.swift; sourceTree = "<group>"; };
+		599FDB72231AEAD79899FD9A /* WidgetShared.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetShared.swift; sourceTree = "<group>"; };
+		5C234B2C13C1905D16CE0717 /* K2ProWatchWidget.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = K2ProWatchWidget.entitlements; sourceTree = "<group>"; };
+		603D66852EC9F5858D858DB3 /* K2ProLiveActivityBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = K2ProLiveActivityBundle.swift; sourceTree = "<group>"; };
+		62766ADF473E9030604D2D6D /* K2ProLiveActivity.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = K2ProLiveActivity.entitlements; sourceTree = "<group>"; };
+		662657AF4C1C066E4B970A46 /* PreviewHarness.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PreviewHarness.swift; sourceTree = "<group>"; };
+		724601FAE414649BD96761BE /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
+		85341F5ACEB92518A6031423 /* WeightView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeightView.swift; sourceTree = "<group>"; };
+		8D065EE05A9B9C0696C6D3EC /* K2ProWatchWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = K2ProWatchWidget.swift; sourceTree = "<group>"; };
 		91DCDF4560C3AD29080F39D8 /* ModeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModeView.swift; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
@@ -103,16 +177,29 @@
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		997A922144D77AABA62346E6 /* K2ProWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = K2ProWatchApp.swift; sourceTree = "<group>"; };
 		A0D2F63247AA89E3B21DAC00 /* Snapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Snapshot.swift; sourceTree = "<group>"; };
+		A11071050000000000000001 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
+		A11071050000000000000003 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		A4EEFCEAFA62278BB8A60793 /* WatchLink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchLink.swift; sourceTree = "<group>"; };
 		AD6C0EB0D5CE5A6309CBAED7 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BDE1E83199A1362ED655B753 /* TimerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimerView.swift; sourceTree = "<group>"; };
 		D2F1850658C4E6E390BC266F /* StepEditorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StepEditorView.swift; sourceTree = "<group>"; };
+		DB0A6444842B6626529F7759 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS11.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		DF4F7D54F56A5C97FC1F9127 /* GroupView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GroupView.swift; sourceTree = "<group>"; };
 		E674406F5F79D745EECDFE5B /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		EA3CD17A64E3E6EA876E52B1 /* RunningView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunningView.swift; sourceTree = "<group>"; };
+		F1F017A6B11930B8AC5BB1D2 /* K2BrewLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = K2BrewLiveActivity.swift; sourceTree = "<group>"; };
+		FC6C50AF1E81BB872E6811D1 /* K2ProWatchWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = K2ProWatchWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		0B09550531FF21D0B2BA60DE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F5BF565A99DCCE8643FD5EF1 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		97C146EB1CF9000F007C117D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -129,6 +216,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C1AB4FDD7C98AE31F4DF9AAC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5877638F0FE05BD9D6C81C00 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -136,6 +231,7 @@
 			isa = PBXGroup;
 			children = (
 				4D62FEB6ADE41F9A1BECBB28 /* Foundation.framework */,
+				DB0A6444842B6626529F7759 /* Foundation.framework */,
 			);
 			name = watchOS;
 			sourceTree = "<group>";
@@ -147,6 +243,18 @@
 			);
 			path = RunnerTests;
 			sourceTree = "<group>";
+		};
+		9449D80A20973530C8232A12 /* K2ProWatchWidget */ = {
+			isa = PBXGroup;
+			children = (
+				8D065EE05A9B9C0696C6D3EC /* K2ProWatchWidget.swift */,
+				3FFCF0FA92A6851AF5C0C5B6 /* K2ProWatchWidgetBundle.swift */,
+				3365756E4F1415E1B189F297 /* Info.plist */,
+				5C234B2C13C1905D16CE0717 /* K2ProWatchWidget.entitlements */,
+			);
+			name = K2ProWatchWidget;
+			path = K2ProWatchWidget;
+			sourceTree = SOURCE_ROOT;
 		};
 		9740EEB11CF90186004384FC /* Flutter */ = {
 			isa = PBXGroup;
@@ -169,6 +277,8 @@
 				331C8082294A63A400263BE5 /* RunnerTests */,
 				BE3DD70EE56B36FE2E851392 /* Frameworks */,
 				BB2B96C723F2B3F34D73AD49 /* K2ProWatch */,
+				A5F02BCA867037C9F56B96FB /* K2ProLiveActivity */,
+				9449D80A20973530C8232A12 /* K2ProWatchWidget */,
 			);
 			sourceTree = "<group>";
 		};
@@ -178,6 +288,8 @@
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 				29166B577946EFC99D5DBE47 /* K2ProWatch.app */,
+				24834AFE18C8B96EB53BEE24 /* K2ProLiveActivity.appex */,
+				FC6C50AF1E81BB872E6811D1 /* K2ProWatchWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -195,9 +307,25 @@
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				1595C5418BBA13705D751DD2 /* WatchBridge.swift */,
+				A11071050000000000000001 /* InfoPlist.xcstrings */,
+				39466C0D4C07FA2A75DBB870 /* LiveActivityBridge.swift */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
+		};
+		A5F02BCA867037C9F56B96FB /* K2ProLiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				58D013F762A8FACB9D9C491B /* K2BrewAttributes.swift */,
+				F1F017A6B11930B8AC5BB1D2 /* K2BrewLiveActivity.swift */,
+				603D66852EC9F5858D858DB3 /* K2ProLiveActivityBundle.swift */,
+				1C4E8FAD8B0F8CA919192260 /* Info.plist */,
+				62766ADF473E9030604D2D6D /* K2ProLiveActivity.entitlements */,
+				08C1BBCCF3FB2C765AD47968 /* K2BrewCard.swift */,
+			);
+			name = K2ProLiveActivity;
+			path = K2ProLiveActivity;
+			sourceTree = SOURCE_ROOT;
 		};
 		BB2B96C723F2B3F34D73AD49 /* K2ProWatch */ = {
 			isa = PBXGroup;
@@ -216,6 +344,12 @@
 				E674406F5F79D745EECDFE5B /* Info.plist */,
 				DF4F7D54F56A5C97FC1F9127 /* GroupView.swift */,
 				EA3CD17A64E3E6EA876E52B1 /* RunningView.swift */,
+				28C4FDA3C35ECB471098FF57 /* ScaleView.swift */,
+				85341F5ACEB92518A6031423 /* WeightView.swift */,
+				A11071050000000000000003 /* Localizable.xcstrings */,
+				662657AF4C1C066E4B970A46 /* PreviewHarness.swift */,
+				599FDB72231AEAD79899FD9A /* WidgetShared.swift */,
+				504F4D0C7AC575DF89E6A4E1 /* WidgetStatusWriter.swift */,
 			);
 			path = K2ProWatch;
 			sourceTree = "<group>";
@@ -224,8 +358,17 @@
 			isa = PBXGroup;
 			children = (
 				02DEE5E372D43FD37C9DED98 /* watchOS */,
+				EFCE3014101C77E460DC5994 /* iOS */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		EFCE3014101C77E460DC5994 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				724601FAE414649BD96761BE /* Foundation.framework */,
+			);
+			name = iOS;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -248,6 +391,23 @@
 			productReference = 331C8081294A63A400263BE5 /* RunnerTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		3D3057590029FC090998D938 /* K2ProWatchWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DCD5E468BF32B89F06DDC7BB /* Build configuration list for PBXNativeTarget "K2ProWatchWidget" */;
+			buildPhases = (
+				D38688C52C87A2C11B73FE77 /* Sources */,
+				0B09550531FF21D0B2BA60DE /* Frameworks */,
+				DCB48B489C0310BA9B8C3465 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = K2ProWatchWidget;
+			productName = K2ProWatchWidget;
+			productReference = FC6C50AF1E81BB872E6811D1 /* K2ProWatchWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		888B114D94291EF1C24F379F /* K2ProWatch */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 177FDF02C704476D2DADF2DA /* Build configuration list for PBXNativeTarget "K2ProWatch" */;
@@ -255,10 +415,12 @@
 				A4AB4A5511E3A0B3EF56629F /* Sources */,
 				BBF5FFE0D327990F8B90F4A3 /* Frameworks */,
 				877F861F29F8EF005E794609 /* Resources */,
+				99B52EFAD027562818034A2A /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				5F65544503A9BFF7C0EB232A /* PBXTargetDependency */,
 			);
 			name = K2ProWatch;
 			productName = K2ProWatch;
@@ -275,12 +437,14 @@
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				EDECFFEAC48184429AB37C68 /* Embed Watch Content */,
+				CE7C7EAA696D84E0A64A7683 /* Embed Foundation Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				CCB0B36758F07E30E9A4F604 /* PBXTargetDependency */,
+				E058B4470674E80BC5252E78 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			packageProductDependencies = (
@@ -289,6 +453,23 @@
 			productName = Runner;
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
+		};
+		FC29A68A92D7D292BBA8557B /* K2ProLiveActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DEB8B58D8D14B055AFC79279 /* Build configuration list for PBXNativeTarget "K2ProLiveActivity" */;
+			buildPhases = (
+				8942A123D7646635D60451F0 /* Sources */,
+				C1AB4FDD7C98AE31F4DF9AAC /* Frameworks */,
+				9F7444CBB5FFEEDA430DF3B2 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = K2ProLiveActivity;
+			productName = K2ProLiveActivity;
+			productReference = 24834AFE18C8B96EB53BEE24 /* K2ProLiveActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -317,6 +498,7 @@
 			knownRegions = (
 				en,
 				Base,
+				ru,
 			);
 			mainGroup = 97C146E51CF9000F007C117D;
 			packageReferences = (
@@ -329,6 +511,8 @@
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
 				888B114D94291EF1C24F379F /* K2ProWatch */,
+				FC29A68A92D7D292BBA8557B /* K2ProLiveActivity */,
+				3D3057590029FC090998D938 /* K2ProWatchWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -346,6 +530,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A53F960BDF4CCC8AEF849017 /* Assets.xcassets in Resources */,
+				A11071050000000000000004 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -357,6 +542,21 @@
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
+				A11071050000000000000002 /* InfoPlist.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9F7444CBB5FFEEDA430DF3B2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DCB48B489C0310BA9B8C3465 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -405,6 +605,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		8942A123D7646635D60451F0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				905B3A7B856F336516B1DCCB /* K2BrewAttributes.swift in Sources */,
+				93BB1B3CE39BCFE9AD4298C8 /* K2BrewLiveActivity.swift in Sources */,
+				D479043831FE736972C96C3E /* K2ProLiveActivityBundle.swift in Sources */,
+				21A719A9AB41846983DD2474 /* K2BrewCard.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		97C146EA1CF9000F007C117D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -413,6 +624,9 @@
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				63D92427B01F4408773B820C /* WatchBridge.swift in Sources */,
+				4561F229B64C7F0CFA176EA5 /* K2BrewAttributes.swift in Sources */,
+				14B9D779D446EB6D987CF5FD /* LiveActivityBridge.swift in Sources */,
+				A3674E2BEB124EB14B200AB2 /* K2BrewCard.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -432,6 +646,21 @@
 				D9E2650177557770755BD022 /* WatchLink.swift in Sources */,
 				DABF82049F0F16B098F6D572 /* GroupView.swift in Sources */,
 				4A717608A907740FF95C8495 /* RunningView.swift in Sources */,
+				74F7A22FACF046E9DEAA891F /* ScaleView.swift in Sources */,
+				500B2490227611BA1B3E3B77 /* WeightView.swift in Sources */,
+				D0DC4B8FCE67BC10B8985585 /* PreviewHarness.swift in Sources */,
+				6B203633EAAD0077877BB67E /* WidgetShared.swift in Sources */,
+				215C2457B175E235023D58EA /* WidgetStatusWriter.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D38688C52C87A2C11B73FE77 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C898D33A4CF37BA09EBAEA7D /* WidgetShared.swift in Sources */,
+				EF0334BAC159F651EB908886 /* K2ProWatchWidget.swift in Sources */,
+				1F15FEBEC3A29B0848ADC4E7 /* K2ProWatchWidgetBundle.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -443,11 +672,23 @@
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
 		};
+		5F65544503A9BFF7C0EB232A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = K2ProWatchWidget;
+			target = 3D3057590029FC090998D938 /* K2ProWatchWidget */;
+			targetProxy = BBBA0700A396404F22715BC1 /* PBXContainerItemProxy */;
+		};
 		CCB0B36758F07E30E9A4F604 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = K2ProWatch;
 			target = 888B114D94291EF1C24F379F /* K2ProWatch */;
 			targetProxy = 2CFCF3B83C29951B49EC0A21 /* PBXContainerItemProxy */;
+		};
+		E058B4470674E80BC5252E78 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = K2ProLiveActivity;
+			target = FC29A68A92D7D292BBA8557B /* K2ProLiveActivity */;
+			targetProxy = 610D34A51CCB8071175F952F /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -471,11 +712,39 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		112AB316C4B4836829248E5B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = K2ProWatchWidget/K2ProWatchWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = E6NP5CG2G4;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = K2ProWatchWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ru.bukharskiy.k2pro.watchkitapp.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchsimulator watchos";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
 		11AEC1746A7E063785C9362B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = K2ProWatch/K2ProWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMPANION_APP_BUNDLE_ID = ru.bukharskiy.k2pro;
 				CURRENT_PROJECT_VERSION = 1;
@@ -557,6 +826,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = E6NP5CG2G4;
 				ENABLE_BITCODE = NO;
@@ -617,6 +887,62 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";
+			};
+			name = Profile;
+		};
+		4EC43AC1CB836FE36FD37045 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = K2ProWatchWidget/K2ProWatchWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = E6NP5CG2G4;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = K2ProWatchWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ru.bukharskiy.k2pro.watchkitapp.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchsimulator watchos";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		7F8A16A957C39A51B978DFB2 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = K2ProWatchWidget/K2ProWatchWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = E6NP5CG2G4;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = K2ProWatchWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ru.bukharskiy.k2pro.watchkitapp.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchsimulator watchos";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Profile;
 		};
@@ -739,6 +1065,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = E6NP5CG2G4;
 				ENABLE_BITCODE = NO;
@@ -762,6 +1089,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = E6NP5CG2G4;
 				ENABLE_BITCODE = NO;
@@ -783,6 +1111,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = K2ProWatch/K2ProWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMPANION_APP_BUNDLE_ID = ru.bukharskiy.k2pro;
 				CURRENT_PROJECT_VERSION = 1;
@@ -804,11 +1133,35 @@
 			};
 			name = Debug;
 		};
+		B71FD0564583BE31C71AF908 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = K2ProLiveActivity/K2ProLiveActivity.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = E6NP5CG2G4;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = K2ProLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = ru.bukharskiy.k2pro.LiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		CA6F01D53B00FA106DB21FDD /* Profile */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = K2ProWatch/K2ProWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMPANION_APP_BUNDLE_ID = ru.bukharskiy.k2pro;
 				CURRENT_PROJECT_VERSION = 1;
@@ -830,6 +1183,54 @@
 				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Profile;
+		};
+		D1EF401A1A50F8A9946268B3 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = K2ProLiveActivity/K2ProLiveActivity.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = E6NP5CG2G4;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = K2ProLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = ru.bukharskiy.k2pro.LiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Profile;
+		};
+		E524F9FF806D41083DC0C63F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = K2ProLiveActivity/K2ProLiveActivity.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = E6NP5CG2G4;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = K2ProLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = ru.bukharskiy.k2pro.LiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -870,6 +1271,26 @@
 				97C147061CF9000F007C117D /* Debug */,
 				97C147071CF9000F007C117D /* Release */,
 				249021D4217E4FDB00AE95B9 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DCD5E468BF32B89F06DDC7BB /* Build configuration list for PBXNativeTarget "K2ProWatchWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4EC43AC1CB836FE36FD37045 /* Release */,
+				112AB316C4B4836829248E5B /* Debug */,
+				7F8A16A957C39A51B978DFB2 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DEB8B58D8D14B055AFC79279 /* Build configuration list for PBXNativeTarget "K2ProLiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E524F9FF806D41083DC0C63F /* Release */,
+				B71FD0564583BE31C71AF908 /* Debug */,
+				D1EF401A1A50F8A9946268B3 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

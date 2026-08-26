@@ -15,6 +15,7 @@ import 'sheet.dart';
 Future<WorkMode?> showModeSheet(
   BuildContext context, {
   required WorkMode selected,
+  ModeSummary? summary,
 }) {
   final t = context.t;
   return showAppSheet<WorkMode>(
@@ -28,12 +29,27 @@ Future<WorkMode?> showModeSheet(
           Builder(
             builder: (context) {
               final style = ModeStyle.of(m);
+              final note = summary?.call(m);
               return SheetTile(
                 title: m.label(t),
                 description: _describe(t, m),
                 accent: style.light,
                 selected: m == selected,
                 icon: ModeIcon(mode: m, size: 19, color: style.light),
+                // Запомненные уставки режима — справа, тем же янтарём акцента:
+                // видно, что у каждого режима свой набор, ещё до выбора.
+                trailing: note == null
+                    ? null
+                    : Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Text(
+                          note,
+                          style: K.numbers.copyWith(
+                            color: style.light.withValues(alpha: 0.8),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                 onTap: () {
                   HapticFeedback.selectionClick();
                   Navigator.pop(ctx, m);
@@ -46,6 +62,9 @@ Future<WorkMode?> showModeSheet(
     ),
   );
 }
+
+/// Короткая сводка запомненного набора режима — строкой под кнопкой.
+typedef ModeSummary = String Function(WorkMode mode);
 
 /// Порядок рядов: от самого простого действия к самому полному и обратно к
 /// холодному проливу.

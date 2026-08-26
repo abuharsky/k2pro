@@ -3,8 +3,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../ble/demo.dart';
 import '../ble/k2_device.dart';
 import '../ble/protocol.dart';
+import '../ble/scale/scale_device.dart';
 import '../ble/trace.dart';
 import '../l10n/app_l10n.dart';
 import '../l10n/l10n_ext.dart';
@@ -12,8 +14,13 @@ import '../model/brew_phase.dart';
 import '../model/pipeline.dart' as pipe;
 import '../model/pipeline.dart' show CtaKind;
 import '../model/recipe.dart';
+import '../model/shot_runner.dart';
 import '../store/prefs.dart';
+import '../store/shot_store.dart';
 import '../store/recipe_editor.dart';
+import 'brew_advice_page.dart';
+import 'journal_page.dart';
+import 'weight_dialog.dart';
 import 'scan_sheet.dart';
 import 'scene/machine_scene.dart';
 import 'scene/scene_state.dart';
@@ -22,27 +29,45 @@ import 'sheets/mode_sheet.dart';
 import 'sheets/pour_sheet.dart';
 import 'sheets/temperature_sheet.dart';
 import 'sheets/timer_sheet.dart';
+import 'sheets/weight_sheet.dart';
 import 'theme.dart';
 import 'widgets/bottom_bar.dart';
 import 'widgets/cycle_timeline.dart';
 import 'widgets/k_icons.dart';
 import 'widgets/phase_aura.dart';
+import 'widgets/scale_button.dart';
 import 'widgets/top_bar.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
     required this.device,
+    required this.scale,
     required this.prefs,
     this.editor,
+    this.store,
+    this.demo,
   });
 
   final K2Device device;
+
+  /// Весы. Всё, что с ними связано, появляется на экране только когда они
+  /// на связи и шлют отсчёты.
+  final ScaleDevice scale;
+
   final Prefs prefs;
 
   /// Общий с часами редактор уставок. null — экран заводит свой: так удобнее
   /// тестам, где часов нет.
   final RecipeEditor? editor;
+
+  /// Где лежат кривые проливов. null — обычная папка приложения; своё
+  /// хранилище подставляют снимки экранов, чтобы показать настоящий график.
+  final ShotStore? store;
+
+  /// Демо-режим. null — демо в этой сборке недоступно: так собраны тесты и
+  /// снимки экранов, где транспорт задаётся напрямую.
+  final Demo? demo;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -56,6 +81,21 @@ class _HomePageState extends State<HomePage> {
   late final RecipeEditor _editor;
   late final bool _ownsEditor;
 
+  /// Ведение пролива по весу. Живёт здесь, а не в модели экрана: слушать он
+  /// должен и машину, и весы, а решение о стопе принимает по отсчёту весов —
+  /// независимо от того, нарисован ли кто-нибудь на экране.
+  late final ShotRunner _shots;
+
+  /// Кривые проливов на диске. Один на приложение: и пишущий их бегунок, и
+  /// журнал должны смотреть в одну папку.
+  late final ShotStore _store = widget.store ?? ShotStore();
+
+  /// Совет после готовности закрыли вручную — не показываем до следующего
+  /// пролива. См. [_watchBrew]: новый пролив снимает эту метку.
+  /// Пролив оборвала ошибка — советовать по нему нечего.
+  bool _shotFaulted = false;
+  bool _wasBusy = false;
+
   @override
   void initState() {
     super.initState();
@@ -63,19 +103,53 @@ class _HomePageState extends State<HomePage> {
     _editor =
         widget.editor ??
         RecipeEditor(device: widget.device, prefs: widget.prefs);
+    _shots = ShotRunner(
+      device: widget.device,
+      scale: widget.scale,
+      prefs: widget.prefs,
+      store: _store,
+    );
+    widget.device.addListener(_watchBrew);
     WidgetsBinding.instance.addPostFrameCallback((_) => _autoConnect());
   }
 
   @override
   void dispose() {
+    widget.device.removeListener(_watchBrew);
+    _shots.dispose();
     if (_ownsEditor) _editor.dispose();
     super.dispose();
   }
 
+  /// Следим за проливом ради одной вещи: сорвался он или прошёл.
+  ///
+  /// Показывать баннер решает не это, а сам итог — [ShotRunner.lastShot]:
+  /// он появляется и после ручного стопа, и после отсечки по весу, и после
+  /// таймаута. А вот после аварии спрашивать «как получилось?» не о чем: в
+  /// чашке ничего нет, и вопрос звучал бы издевательством.
+  void _watchBrew() {
+    final d = widget.device;
+    final busy = d.status?.state.isBusy ?? false;
+    if (busy && !_wasBusy) {
+      _wasBusy = true;
+      if (_shotFaulted) setState(() => _shotFaulted = false);
+    } else if (!busy) {
+      _wasBusy = false;
+    }
+    if (d.lastFault != MachineError.none && !_shotFaulted) {
+      setState(() => _shotFaulted = true);
+    }
+  }
+
   /// Подхватываем машину, к которой подключались в прошлый раз, без клика.
+  ///
+  /// Весы подхватываем следом и тем же скроллом эфира: искать их отдельным
+  /// сканом нельзя — радиоканал один, и второй поиск погасил бы первый.
   Future<void> _autoConnect() async {
     final id = widget.prefs.lastDeviceId;
     if (id == null || _autoConnectTried) return;
+    // В демо подключаться некуда: машину уже подставил сам демо-режим.
+    if (widget.demo?.on ?? false) return;
     _autoConnectTried = true;
     Trace.instance.ui('автоподключение к $id');
 
@@ -90,9 +164,23 @@ class _HomePageState extends State<HomePage> {
     try {
       await d.startScan();
       await done.future.timeout(const Duration(seconds: 12));
+      final scaleId = widget.prefs.lastScaleId;
+      final scaleSeen =
+          scaleId != null && d.discovered.any((x) => x.id == scaleId);
       await d.stopScan();
       await d.connect(id);
-      widget.prefs.remember(id, widget.prefs.nameOf(id) ?? '');
+      widget.prefs.remember(id, '');
+      // Весы вторыми и без ожидания: не поднялись — не беда, машина работает
+      // и без них, а человек откроет список сам.
+      if (scaleSeen) {
+        unawaited(
+          widget.scale
+              .connect(scaleId)
+              .catchError(
+                (Object e) => Trace.instance.ui('весы не подхватились: $e'),
+              ),
+        );
+      }
     } catch (e) {
       // Машины нет в эфире — пользователь откроет список сам.
       Trace.instance.ui('автоподключение не вышло: $e');
@@ -133,12 +221,14 @@ class _HomePageState extends State<HomePage> {
     _ => widget.prefs.runMode,
   };
 
-  /// Запуск в выбранном режиме. Параметры уже лежат в машине, досылать нечего.
-  Future<void> _run(WorkMode mode) => _start(mode, switch (mode) {
-    WorkMode.heatAndBrew => widget.device.heatAndBrew,
-    WorkMode.heat => widget.device.heat,
-    WorkMode.brew => widget.device.brew,
-  });
+  /// Запуск в выбранном режиме.
+  ///
+  /// Порядок «уставки, потом пуск» и ожидание на кнопке — забота [K2Device]:
+  /// нажать могут и с часов, а ждать при этом должны оба экрана.
+  Future<void> _run(WorkMode mode) async {
+    Trace.instance.ui('ТАП пуск: ${mode.name}');
+    await widget.device.start(mode, apply: _editor.commit());
+  }
 
   /// После осознанного нажатия проверяем только то, что нельзя выразить
   /// самой кнопкой: хватит ли заряда на нагрев. Удержание от случайного
@@ -178,9 +268,20 @@ class _HomePageState extends State<HomePage> {
       device: d,
       prefs: widget.prefs,
       recipe: _editor.active,
+      demo: widget.demo,
     );
     if (!context.mounted || action == null) return;
     switch (action) {
+      case DeviceAction.journal:
+        _openJournal(context);
+      case DeviceAction.advice:
+        await openBrewAdvice(
+          context,
+          editor: _editor,
+          device: widget.device,
+          scale: widget.scale,
+          prefs: widget.prefs,
+        );
       case DeviceAction.rename:
         await _rename(context);
       case DeviceAction.choose:
@@ -192,7 +293,14 @@ class _HomePageState extends State<HomePage> {
       case DeviceAction.language:
         await showLanguageSheet(context, widget.prefs);
       case DeviceAction.disconnect:
-        await d.disconnect();
+        // Из демо выходят тем же действием, что и отключаются от машины:
+        // вошли в него подключением, выходим отключением.
+        final demo = widget.demo;
+        if (demo?.on ?? false) {
+          await demo!.leave();
+        } else {
+          await d.disconnect();
+        }
     }
   }
 
@@ -258,20 +366,6 @@ class _HomePageState extends State<HomePage> {
     if (name != null && name.isNotEmpty) widget.prefs.deviceName = name;
   }
 
-  /// Любой запуск: сначала записать уставки, потом пускать.
-  ///
-  /// Пишем всегда, а не только когда правка не успела уехать. Совпадение
-  /// экрана с машиной гарантировано лишь после её ответа; когда она отмолчала
-  /// рукопожатие, на экране кэш прошлого сеанса — и что лежит в ней самой,
-  /// неизвестно. Два лишних кадра дешевле неверного пролива.
-  Future<void> _start(WorkMode mode, Future<void> Function() run) async {
-    Trace.instance.ui('ТАП пуск: ${mode.name}');
-    await _editor.push();
-    if (!mounted) return;
-    await run();
-    Trace.instance.ui('пуск: кадр ушёл');
-  }
-
   Future<void> _openTemperature(BuildContext context) async {
     Trace.instance.ui('шторка температуры открыта');
     final lim = widget.device.tempLimits;
@@ -300,6 +394,59 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// Уставки шага «вес». Сами весы как прибор живут на своём экране — сюда
+  /// заезжает только то, чем кончится пролив.
+  Future<void> _openWeight(
+    BuildContext context, {
+    required bool running,
+  }) async {
+    Trace.instance.ui('шторка веса открыта');
+    await showWeightSheet(
+      context,
+      scale: widget.scale,
+      prefs: widget.prefs,
+      // Уставок на ходу машина не берёт, а включение отсечки как раз меняет
+      // время экстракции — поэтому на ходу переключатель заперт.
+      onAutoStop: running ? null : _setAutoStop,
+    );
+  }
+
+  /// Взвешивание: диалог по центру. Положил зерно, посмотрел, закрыл —
+  /// занятие на десять секунд, и целого экрана оно не стоит.
+  Future<void> _openWeightDialog(BuildContext context) async {
+    Trace.instance.ui('весы открыты');
+    await showWeightDialog(context, scale: widget.scale, prefs: widget.prefs);
+  }
+
+  /// Журнал проливов с графиками. В диалог он не влезает и не должен: это про
+  /// историю, а не про то, что лежит на весах сейчас.
+  void _openJournal(BuildContext context) {
+    Trace.instance.ui('журнал открыт');
+    openJournal(context, prefs: widget.prefs, store: _store);
+  }
+
+  /// Включить или выключить отсечку по весу.
+  ///
+  /// Включение подменяет время экстракции потолком: секунды перестают быть
+  /// целью и становятся предохранителем. Прежнее число запоминаем — человек
+  /// его, может, полгода подбирал, и терять его при выключении нельзя.
+  void _setAutoStop(bool on) {
+    final p = widget.prefs;
+    final g = p.gravimetry;
+    final range = widget.device.workParams.extraction;
+    final now = _editor.active.extractionSeconds;
+
+    if (on) {
+      p.gravimetry = g.copyWith(stopOnYield: true, secondsBeforeAutoStop: now);
+      if (now < range.max) _editor.edit(extractionSeconds: range.max);
+    } else {
+      final back = g.secondsBeforeAutoStop;
+      p.gravimetry = g.copyWith(stopOnYield: false, dropSavedSeconds: true);
+      if (back != null) _editor.edit(extractionSeconds: range.clamp(back));
+    }
+    Trace.instance.ui('отсечка по весу: ${on ? 'включена' : 'выключена'}');
+  }
+
   /// Режим — одно решение из трёх, поэтому лист, а не переключатель.
   Future<void> _openMode(BuildContext context) async {
     final d = widget.device;
@@ -309,17 +456,45 @@ class _HomePageState extends State<HomePage> {
     // на экране ничего не менялось — выглядело так, будто карточка не
     // нажимается вовсе.
     final current = a.enabled ? a.mode.asWorkMode : widget.prefs.runMode;
-    final m = await showModeSheet(context, selected: current);
+    final m = await showModeSheet(
+      context,
+      selected: current,
+      // Под каждым режимом — его запомненные уставки: сразу видно, что
+      // «нагрев + пролив» это эспрессо с паузами, а «пролив» — голый кипяток.
+      summary: (mode) => _modeSummary(context.t, mode),
+    );
     if (!mounted || m == null) return;
     if (a.enabled) {
       d.setSchedule(a.copyWith(mode: m.asScheduleMode), immediate: true);
     }
-    widget.prefs.runMode = m;
+    await _editor.selectMode(m);
+  }
+
+  /// Короткая сводка набора режима для листа выбора: температура там, где режим
+  /// греет, и структура пролива там, где он льёт.
+  String _modeSummary(AppL10n t, WorkMode mode) {
+    final r = widget.prefs.recipeFor(mode);
+    final f = widget.prefs.fahrenheit;
+    final unit = f ? '°F' : '°C';
+    final temp = '${toDisplayTemp(r.temperatureC, f)}$unit';
+    final pour =
+        '${r.preInfusionSeconds}/${r.standstillSeconds}/${r.extractionSeconds} ${t.secondsUnit}';
+    return switch (mode) {
+      WorkMode.heat => temp,
+      WorkMode.heatAndBrew => '$temp · $pour',
+      WorkMode.brew => pour,
+    };
   }
 
   Future<void> _openScan(BuildContext context) async {
     // Лист сам записывает машину в список — здесь ловить нечего.
-    await showScanSheet(context, widget.device, widget.prefs);
+    await showScanSheet(
+      context,
+      widget.device,
+      widget.scale,
+      widget.prefs,
+      demo: widget.demo,
+    );
   }
 
   /// Убрать машину из списка. Единственный способ это сделать — отсюда.
@@ -356,7 +531,14 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([widget.device, widget.prefs, _editor]),
+      listenable: Listenable.merge([
+        widget.device,
+        widget.scale,
+        _shots,
+        widget.prefs,
+        _editor,
+        widget.demo,
+      ]),
       builder: (context, _) {
         final t = context.t;
         final d = widget.device;
@@ -365,6 +547,7 @@ class _HomePageState extends State<HomePage> {
         final recipe = _editor.active;
         final phase = d.progress.phase;
         final editable = d.isConnected && !d.isBusy;
+        final demo = widget.demo?.on ?? false;
 
         // Пока будильник заведён, машину запустит он — и режимом распорядится
         // тоже он. Таймлайн показывает то, что действительно случится.
@@ -395,33 +578,46 @@ class _HomePageState extends State<HomePage> {
                     child: Stack(
                       children: [
                         // Аура стоит позади машины, а машина сдвинута вправо —
-                        // левую треть занимает таймлайн.
+                        // левую треть занимает таймлайн. Сдвиг общий на обе:
+                        // аура — свечение самой машины и ездит вместе с ней.
                         Positioned.fill(
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: _machineLeft),
-                            child: PhaseAura(phase: phase, running: d.isBusy),
-                          ),
-                        ),
-                        Positioned.fill(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              _machineLeft,
-                              14,
-                              0,
-                              14,
-                            ),
-                            child: Center(
-                              // Машина занимает не весь отведённый прямоугольник:
-                              // впритык к шапке и нижнему ряду она смотрелась
-                              // тяжело, поэтому оставляем вокруг воздух.
-                              child: FractionallySizedBox(
-                                widthFactor: _machineScale,
-                                heightFactor: _machineScale,
-                                child: MachineScene(
-                                  state: _sceneOf(d),
-                                  accent: PhaseAura.solidOf(phase),
+                          child: Transform.translate(
+                            offset: const Offset(_machineShift, 0),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: _machineLeft,
+                                  ),
+                                  child: PhaseAura(
+                                    phase: phase,
+                                    running: d.isBusy,
+                                  ),
                                 ),
-                              ),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    _machineLeft,
+                                    14,
+                                    0,
+                                    14,
+                                  ),
+                                  child: Center(
+                                    // Машина занимает не весь отведённый
+                                    // прямоугольник: впритык к шапке и нижнему
+                                    // ряду она смотрелась тяжело, поэтому
+                                    // оставляем вокруг воздух.
+                                    child: FractionallySizedBox(
+                                      widthFactor: _machineScale,
+                                      heightFactor: _machineScale,
+                                      child: MachineScene(
+                                        state: _sceneOf(d),
+                                        accent: PhaseAura.solidOf(phase),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -448,7 +644,11 @@ class _HomePageState extends State<HomePage> {
                     left: _sideInset,
                     right: _sideInset,
                     child: TopBar(
-                      name: p.deviceName,
+                      // В демо имя своё: показывать над симулятором имя, которым
+                      // назвали настоящую машину, значит выдавать одно за другое.
+                      // Что это симулятор, говорит метка рядом, а не имя.
+                      name: demo ? t.appTitle : p.deviceName,
+                      demo: demo,
                       connected: d.isConnected,
                       connecting: d.isSeeking,
                       asleep: d.isAsleep,
@@ -462,14 +662,37 @@ class _HomePageState extends State<HomePage> {
                   // Ошибка гаснет в телеметрии через пару пакетов, поэтому
                   // висит рядом с рядом кнопок, а не в прокручиваемой части.
                   if (d.lastFault != MachineError.none)
-                    Positioned(
-                      left: 10,
-                      right: 10,
-                      bottom: BottomBar.height,
+                    _BannerSlot(
                       child: _ErrorBanner(
                         error: d.lastFault,
+                        code: d.lastFaultCode,
                         at: d.lastFaultAt,
                         onDismiss: d.clearFault,
+                      ),
+                    )
+                  // Пролив прошёл — мягко предлагаем разобрать чашку.
+                  // Некритично: закрыл, и до следующего не покажем. Ошибка
+                  // важнее, поэтому не рядом с ней, а вместо неё.
+                  //
+                  // Признак — записанный итог, а не «готово» от машины: после
+                  // ручного стопа она встаёт в покой, а кофе в чашке при этом
+                  // есть, просто короче. Раньше на таком баннер не выходил
+                  // вовсе.
+                  else if (_shots.lastShot != null &&
+                      !_shotFaulted &&
+                      p.adviceBanner)
+                    _BannerSlot(
+                      child: _AdviceBanner(
+                        onTune: () => openBrewAdvice(
+                          context,
+                          editor: _editor,
+                          device: d,
+                          scale: widget.scale,
+                          prefs: widget.prefs,
+                        ),
+                        // Закрыть итог — это же и вернуть бегунок в покой:
+                        // фаза и баннер живут врозь, но убираются заодно.
+                        onDismiss: _shots.dismiss,
                       ),
                     ),
 
@@ -477,7 +700,17 @@ class _HomePageState extends State<HomePage> {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    child: BottomBar(cta: _cta(t, d, mode, armed)),
+                    child: BottomBar(
+                      cta: _cta(t, d, mode, armed),
+                      // Весы встают в тот же ряд, что и пуск, и только когда
+                      // они есть: пустая кнопка ничего не сообщает.
+                      leading: widget.scale.isConnected
+                          ? ScaleButton(
+                              scale: widget.scale,
+                              onTap: () => _openWeightDialog(context),
+                            )
+                          : null,
+                    ),
                   ),
                 ],
               ),
@@ -497,6 +730,11 @@ class _HomePageState extends State<HomePage> {
 
   /// Сколько от своей зоны занимает машина.
   static const double _machineScale = 0.9;
+
+  /// Машину с аурой сдвигаем правее центра зоны: слева проходит колонка
+  /// таймлайна, и в портрете без сдвига они смотрятся вплотную. Сдвиг, а не
+  /// поле слева: поле съело бы ширину зоны и заодно уменьшило саму машину.
+  static const double _machineShift = 16;
 
   // ---- шаги цикла -------------------------------------------------------
 
@@ -542,9 +780,19 @@ class _HomePageState extends State<HomePage> {
           progress: model.armed ? 1 : null,
           mark: model.armed ? _markOf(alarm.mark) : StepMark.setting,
           onTap: alarm.editable
-              ? () => showTimerSheet(context, d)
+              ? () => showTimerSheet(
+                  context,
+                  d,
+                  recipe: _editor.active,
+                  runMode: widget.prefs.runMode,
+                )
               : d.isConnected && !model.running
-              ? () => showTimerSheet(context, d)
+              ? () => showTimerSheet(
+                  context,
+                  d,
+                  recipe: _editor.active,
+                  runMode: widget.prefs.runMode,
+                )
               : null,
         ),
       );
@@ -606,25 +854,98 @@ class _HomePageState extends State<HomePage> {
           recipe.preInfusionSeconds +
           recipe.standstillSeconds +
           recipe.extractionSeconds;
+      // При отсечке по весу секунды перестают быть целью: цель — граммы, а
+      // машина просто не даст лить дольше. Поэтому в покое карточка называется
+      // пределом и не горит, а на самой экстракции с неё уезжает кольцо —
+      // долю показывает карточка веса. Секунды при этом остаются: время шота
+      // смотрят всегда, просто теперь это секундомер, а не обратный отсчёт.
+      final byWeight = _autoStopArmed;
+      final onExtraction = live?.id == pipe.StepId.extraction;
       steps.add(
         CycleStep(
           kind: StepKind.pour,
-          label: (live?.label ?? t.stepPour).toUpperCase(),
-          value: live?.value ?? t.seconds(total),
+          label: (live?.label ?? (byWeight ? t.weightLimit : t.stepPour))
+              .toUpperCase(),
+          value: byWeight && onExtraction
+              ? t.seconds(d.progress.elapsed.inSeconds)
+              : live?.value ?? t.seconds(total),
           icon: live == null ? KIcon.streams : _iconOf(live.id),
-          tone: live == null ? PhaseTone.amber : _toneOf(live.tone, model.mode),
+          tone: live == null
+              ? (byWeight ? PhaseTone.muted : PhaseTone.amber)
+              : _toneOf(live.tone, model.mode),
           mark: live != null
               ? StepMark.active
               : pour.every((s) => s.mark == pipe.StepMark.passed)
               ? StepMark.passed
               : StepMark.upcoming,
-          progress: live?.progress,
+          progress: byWeight && onExtraction ? null : live?.progress,
           onTap: pour.any((s) => s.editable) ? () => _openPour(context) : null,
         ),
       );
     }
 
+    // 5. Вес: карточки нет, пока нет весов. Подключены они или нет — вопрос
+    // не режима, а наличия: показывать цель, которую нечем измерить, значит
+    // обещать несделанное.
+    final weight = _weightStep(t, model.running);
+    if (weight != null) steps.add(weight);
+
     return steps;
+  }
+
+  /// Отсечка по весу действительно работает: человек её включил и весы живы.
+  ///
+  /// Одного переключателя мало — весы могут просто лежать на столе и не иметь
+  /// к машине отношения, а могут отвалиться посреди пролива. Во всех этих
+  /// случаях пролив идёт по времени, и врать про это карточкам нельзя.
+  bool get _autoStopArmed =>
+      widget.prefs.gravimetry.stopOnYield && widget.scale.isLive;
+
+  /// Карточка веса. Два лица: наблюдение и отсечка.
+  CycleStep? _weightStep(AppL10n t, bool running) {
+    final scale = widget.scale;
+    if (!scale.isConnected) return null;
+
+    final g = widget.prefs.gravimetry;
+    final auto = _autoStopArmed;
+    final phase = _shots.phase;
+    final settling = phase == ShotPhase.settling;
+    final done = phase == ShotPhase.done;
+
+    String grams(double v) => t.weightGrams(v.toStringAsFixed(1));
+
+    return CycleStep(
+      kind: StepKind.weight,
+      label: (settling ? t.weightSettling : t.stepWeight).toUpperCase(),
+      // По времени карточка показывает живой вес и больше ничего: цели она не
+      // заказывала. По весу — сколько набрано из заказанного.
+      value: !auto
+          ? grams(scale.grams)
+          : _shots.isRunning || done
+          ? t.weightOf(
+              scale.grams.toStringAsFixed(1),
+              g.targetG.toStringAsFixed(1),
+            )
+          : grams(g.targetG),
+      icon: KIcon.scale,
+      tone: auto ? PhaseTone.water : PhaseTone.muted,
+      // `setting` — карточка стоит в колонке, но в очереди фаз не участвует:
+      // ни линии сверху, ни «пройдено». Ровно то, что нужно наблюдению.
+      mark: !auto
+          ? StepMark.setting
+          : done
+          ? StepMark.passed
+          : _shots.isRunning
+          ? StepMark.active
+          : StepMark.upcoming,
+      // Кольцо живёт здесь только при отсечке — и не гаснет на осадке: пролив
+      // уже пройден, а вес ещё доползает, и это последнее, что видно живым.
+      progress: auto && (_shots.isRunning || done) ? _shots.fraction : null,
+      // Цель горит цветом воды с самого покоя: по этой цифре и видно, что
+      // пролив пойдёт по весу, а не по секундам.
+      accent: auto,
+      onTap: () => _openWeight(context, running: running),
+    );
   }
 
   KIcon _iconOf(pipe.StepId id) => switch (id) {
@@ -676,7 +997,12 @@ class _HomePageState extends State<HomePage> {
     final kind = pipe.ctaKindOf(d, armed: armed, mode: mode);
     // Ожидание — свойство цикла, а не кнопки: команда могла уйти и с часов.
     final pending = d.cycleState.isPending;
-    final slide = kind == CtaKind.start && mode != WorkMode.brew;
+    // Жестом подтверждаются оба необратимых действия. Пуск с нагревом включает
+    // кипятильник, стоп рубит пролив на середине — и то, и другое переделать
+    // нельзя, а кнопка внизу широкая и попадается под палец сама.
+    final slide =
+        kind == CtaKind.stop ||
+        (kind == CtaKind.start && mode != WorkMode.brew);
 
     return BarCta(
       kind: kind,
@@ -689,7 +1015,7 @@ class _HomePageState extends State<HomePage> {
       },
       label: switch (kind) {
         CtaKind.connect => t.connect,
-        CtaKind.stop => t.ctaStop,
+        CtaKind.stop => t.slideToStop,
         CtaKind.done => t.ctaDone,
         CtaKind.cancelAlarm => t.cancelAlarm,
         // Последняя ошибка остаётся на экране, пока человек явно не нажмёт
@@ -700,12 +1026,13 @@ class _HomePageState extends State<HomePage> {
       },
       onTap: switch (kind) {
         CtaKind.connect => d.isSeeking ? null : () => _openScan(context),
-        CtaKind.stop => pending
-            ? null
-            : () {
-                Trace.instance.ui('ТАП стоп');
-                unawaited(d.stop());
-              },
+        CtaKind.stop =>
+          pending
+              ? null
+              : () {
+                  Trace.instance.ui('ТАП стоп');
+                  unawaited(d.stop());
+                },
         CtaKind.cancelAlarm => () => d.setSchedule(
           d.appointment.copyWith(enabled: false),
           immediate: true,
@@ -717,50 +1044,100 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+/// Место баннера над рядом пуска.
+///
+/// Ширина ограничена, а сам баннер стоит по центру: строка во весь планшет
+/// заставляет глаз бежать через весь экран ради полутора слов. Колонкой её
+/// держат и лист настроек, и ряд пуска — баннер встаёт в тот же столбец.
+class _BannerSlot extends StatelessWidget {
+  const _BannerSlot({required this.child});
+
+  final Widget child;
+
+  /// Чуть шире ряда пуска под ним (`BottomBar`: 300 одной кнопкой, 394 с
+  /// весами) — баннер и кнопка читаются одним столбцом, а не двумя разными
+  /// вещами, случайно оказавшимися рядом.
+  static const double maxWidth = 400;
+
+  @override
+  Widget build(BuildContext context) => Positioned(
+    left: 10,
+    right: 10,
+    // Приподнят над рядом пуска: впритык баннер читается как часть кнопки.
+    bottom: BottomBar.height + 10,
+    child: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: maxWidth),
+        child: child,
+      ),
+    ),
+  );
+}
+
 /// Что случилось с машиной. Гаснет по тапу и сама — как только телеметрия
 /// перестаёт повторять код ошибки.
 class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.error, this.at, this.onDismiss});
+  const _ErrorBanner({
+    required this.error,
+    required this.code,
+    this.at,
+    this.onDismiss,
+  });
 
   final MachineError error;
+
+  /// Сырой код от машины. У знакомой ошибки он совпадает с [MachineError.code],
+  /// у незнакомой — единственное, что о ней известно.
+  final int code;
   final DateTime? at;
   final VoidCallback? onDismiss;
+
+  /// Тёплый красный кромки и значка. Заливка того же цвета, но глубже: под
+  /// размытием стекла яркая плёнка выглядела бы наклейкой.
+  static const Color _accent = Color(0xFFFF8A6B);
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     final time = at;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: ShapeDecoration(
-        color: const Color(0x24D63B2F),
-        shape: kSquircle(
-          K.rCard,
-          side: const BorderSide(color: Color(0x59FF7052)),
+    // У знакомой ошибки номер известен из неё самой; сырое число нужно только
+    // незнакомой — по нему её и будут искать в сервисе.
+    final shown = error == MachineError.unknown ? code : error.code;
+    return Glass(
+      radius: K.rCard,
+      tone: GlassTone.panel,
+      fill: const Color(0x2ED63B2F),
+      border: _accent.withValues(alpha: 0.55),
+      // Своё свечение вместо нейтральной тени: полоса всплывает над рядом
+      // кнопок, и красный ореол отделяет её от них лучше любой рамки.
+      shadow: const [
+        BoxShadow(
+          color: Color(0x4DD63B2F),
+          blurRadius: 24,
+          offset: Offset(0, 8),
         ),
-      ),
+      ],
+      padding: const EdgeInsets.fromLTRB(14, 11, 6, 11),
       child: Row(
         children: [
-          const Icon(
-            Icons.error_outline_rounded,
-            color: Color(0xFFFF7052),
-            size: 18,
-          ),
-          const SizedBox(width: 10),
+          const KIconView(KIcon.alert, size: 19, color: _accent),
+          const SizedBox(width: 11),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   error.label(t),
-                  style: const TextStyle(color: K.text, fontSize: 13),
+                  style: K.rowTitle.copyWith(color: K.text, fontSize: 13.5),
                 ),
-                if (time != null)
-                  Text(
-                    '${_two(time.hour)}:${_two(time.minute)} · '
-                    '${t.errCode(error.code)}',
-                    style: const TextStyle(color: K.textDim, fontSize: 11),
-                  ),
+                const SizedBox(height: 2),
+                Text(
+                  time == null
+                      ? t.errCode(shown)
+                      : '${_two(time.hour)}:${_two(time.minute)} · '
+                            '${t.errCode(shown)}',
+                  style: K.caption.copyWith(color: K.textDim),
+                ),
               ],
             ),
           ),
@@ -770,14 +1147,13 @@ class _ErrorBanner extends StatelessWidget {
               onTap: onDismiss,
               semanticLabel: t.checkAgain,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 child: Text(
                   t.checkAgain,
-                  style: const TextStyle(
-                    color: Color(0xFFFF9B83),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: K.menuChip.copyWith(color: _accent, fontSize: 12),
                 ),
               ),
             ),
@@ -788,4 +1164,75 @@ class _ErrorBanner extends StatelessWidget {
   }
 
   static String _two(int v) => v.toString().padLeft(2, '0');
+}
+
+/// Мягкое предложение разобрать чашку после готовности. Некритично: «Настроить»
+/// открывает советы, крестик — гасит до следующего пролива.
+class _AdviceBanner extends StatelessWidget {
+  const _AdviceBanner({required this.onTune, required this.onDismiss});
+
+  final VoidCallback onTune;
+  final VoidCallback onDismiss;
+
+  static const Color _accent = K.amber;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    return Glass(
+      radius: K.rCard,
+      tone: GlassTone.panel,
+      fill: const Color(0x1FFFB000),
+      border: _accent.withValues(alpha: 0.5),
+      shadow: const [
+        BoxShadow(
+          color: Color(0x33FFB000),
+          blurRadius: 22,
+          offset: Offset(0, 8),
+        ),
+      ],
+      padding: const EdgeInsets.fromLTRB(14, 11, 6, 11),
+      child: Row(
+        children: [
+          const KIconView(KIcon.cup, size: 19, color: _accent),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t.adviceHeadline,
+                  style: K.rowTitle.copyWith(color: K.text, fontSize: 13.5),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  t.adviceBannerBody,
+                  style: K.caption.copyWith(color: K.textDim),
+                ),
+              ],
+            ),
+          ),
+          KTap(
+            onTap: onTune,
+            semanticLabel: t.adviceTune,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Text(
+                t.adviceTune,
+                style: K.menuChip.copyWith(color: _accent, fontSize: 12),
+              ),
+            ),
+          ),
+          KTap(
+            onTap: onDismiss,
+            semanticLabel: MaterialLocalizations.of(context).closeButtonLabel,
+            child: const Padding(
+              padding: EdgeInsets.all(8),
+              child: KIconView(KIcon.close, size: 15, color: K.textMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

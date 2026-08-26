@@ -29,6 +29,9 @@ enum KIcon {
   bluetooth,
   plus,
   minus,
+  scale,
+  close,
+  alert,
 }
 
 class KIconView extends StatelessWidget {
@@ -126,8 +129,58 @@ class _KIconPainter extends CustomPainter {
         _plus(canvas, line);
       case KIcon.minus:
         _minus(canvas, line);
+      case KIcon.scale:
+        _scale(canvas, line);
+      case KIcon.close:
+        _close(canvas, line);
+      case KIcon.alert:
+        _alert(canvas, line, fill);
     }
     canvas.restore();
+  }
+
+  /// Треугольник с восклицательным знаком.
+  void _alert(Canvas canvas, Paint line, Paint fill) {
+    // Треугольник, а не круг: круг в этом наборе занят кнопками, а
+    // предупреждение должно отличаться от них силуэтом, а не только цветом.
+    // Углы скругляются сами — стык линий у всей семьи круглый.
+    canvas.drawPath(
+      Path()
+        ..moveTo(12, 3.8)
+        ..lineTo(21.3, 19.6)
+        ..lineTo(2.7, 19.6)
+        ..close(),
+      line,
+    );
+    canvas.drawLine(const Offset(12, 9.6), const Offset(12, 14), line);
+    canvas.drawCircle(const Offset(12, 16.9), 1.05, fill);
+  }
+
+  /// Крестик закрытия.
+  void _close(Canvas canvas, Paint line) {
+    canvas.drawLine(const Offset(7.5, 7.5), const Offset(16.5, 16.5), line);
+    canvas.drawLine(const Offset(16.5, 7.5), const Offset(7.5, 16.5), line);
+  }
+
+  /// Весы: плоская платформа с окошком и что-то положенное сверху.
+  void _scale(Canvas canvas, Paint line) {
+    canvas.drawRRect(
+      RRect.fromLTRBR(3.2, 8.6, 20.8, 17.4, const Radius.circular(2.4)),
+      line,
+    );
+    // Окошко посередине платформы — по нему весы и узнаются.
+    canvas.drawRRect(
+      RRect.fromLTRBR(9.4, 11.6, 14.6, 14.6, const Radius.circular(0.9)),
+      line,
+    );
+    // Зерно на платформе: короткая дужка над ней.
+    canvas.drawArc(
+      const Rect.fromLTRB(9.0, 4.2, 15.0, 10.2),
+      3.34,
+      2.52,
+      false,
+      line,
+    );
   }
 
   /// Колба со столбиком и делениями справа.

@@ -128,6 +128,7 @@ struct PipelineView: View {
     case "mode": path.append(.mode)
     case "stepper": path.append(.step(step.id))
     case "group": path.append(.group(step.id))
+    case "weight": path.append(.weight)
     default: break
     }
   }
@@ -248,10 +249,13 @@ struct CtaButton: View {
   var pending = false
   let onTap: () -> Void
 
-  @State private var holding = false
-
   private var waiting: Bool { cta.busy || pending }
-  private var needsHold: Bool { cta.hold == true }
+
+  /// Пуск требует намеренного жеста — сдвига, а не касания.
+  ///
+  /// В контракте это поле называется `hold` с тех пор, как жестом было
+  /// удержание. Смысл у него прежний: «случайно не должно сработать».
+  private var needsSlide: Bool { cta.hold == true }
 
   /// Остановка не блокируется ожиданием никогда.
   ///
@@ -264,7 +268,24 @@ struct CtaButton: View {
   }
 
   var body: some View {
-    Button(action: { if !needsHold { onTap() } }) {
+    // Сдвигом пускаем только тогда, когда ждать нечего: под ожиданием ручка
+    // ездила бы, ничего не запуская, — а выглядело бы это как рабочий орган.
+    if needsSlide && !waiting {
+      // Высота приезжает снаружи: «Стоп» на экране работы крупнее прочего, и
+      // ручка должна вырасти вместе с ним.
+      SlideToConfirm(cta: cta, height: max(height, K.M.slideHeight), font: font) {
+        onTap()
+      }
+    } else {
+      // Под ожиданием — обычная кнопка. Это и есть тот запасной выход, из-за
+      // которого «Стоп» когда-то не делали сдвигом: если первый ответ
+      // потеряется, второй раз остановить можно простым касанием.
+      button
+    }
+  }
+
+  private var button: some View {
+    Button(action: { if !needsSlide { onTap() } }) {
       Group {
         if locked {
           spinner
@@ -273,10 +294,10 @@ struct CtaButton: View {
           // на месте всё время, пока команда в пути.
           HStack(spacing: 6) {
             spinner
-            Text(cta.label).font(font)
+            label
           }
         } else {
-          Text(cta.label).font(font)
+          label
         }
       }
       .foregroundStyle(Color(hex: cta.fg))
@@ -286,18 +307,15 @@ struct CtaButton: View {
     }
     .buttonStyle(.plain)
     .disabled(locked)
-    .scaleEffect(holding ? 0.97 : 1)
-    .animation(.easeOut(duration: 0.12), value: holding)
-    .onLongPressGesture(
-      minimumDuration: 0.85,
-      maximumDistance: 28,
-      pressing: { pressing in
-        if needsHold && !locked { holding = pressing }
-      },
-      perform: {
-        if needsHold && !locked { onTap() }
-      }
-    )
+  }
+
+  private var label: some View {
+    // Подпись приезжает с телефона и на 41 мм бывает длиннее капсулы. Резать
+    // её посреди слова нельзя: это единственное, что говорит, что случится.
+    Text(cta.label)
+      .font(font)
+      .lineLimit(1)
+      .minimumScaleFactor(0.7)
   }
 
   private var spinner: some View {
@@ -306,5 +324,119 @@ struct CtaButton: View {
       .tint(Color(hex: cta.fg))
       .scaleEffect(0.6)
       .frame(width: 20, height: 20)
+  }
+}
+
+/// Пуск сдвигом.
+///
+/// Штатного контрола для этого на watchOS нет: свой слайдер выключения Apple
+/// рисует приватным API, а публично есть только кнопка и жесты. Удержание мы
+/// пробовали — оно требует объяснения словами («удерживайте для запуска»), а
+/// таких слов в капсулу на 41 мм не помещается. Сдвиг объясняет себя сам:
+/// ручка слева, ехать вправо.
+///
+/// Смысл тот же, что был у удержания: кипятильник не должен включаться от
+/// случайного касания запястьем о рукав.
+struct SlideToConfirm: View {
+  let cta: Cta
+  var height: CGFloat = K.M.slideHeight
+  var font: Font = K.F.cta
+  let onConfirm: () -> Void
+
+  /// Насколько ручка уехала вправо, в точках.
+  @State private var offset: CGFloat = 0
+
+  /// Порог пройден — щёлкнуть об этом надо один раз, а не каждый кадр.
+  @State private var armed = false
+
+  /// Сработало. Дальше жест игнорируем: экран вот-вот сменится на «Стоп», и
+  /// второй пуск по дороге туда никому не нужен.
+  @State private var fired = false
+
+  /// Доехать надо почти до конца, но не ровно: последние точки хода пальцем
+  /// не отмеряются, а отменённый по недоезду пуск раздражает сильнее, чем
+  /// лишние пять процентов запаса.
+  private static let threshold: CGFloat = 0.85
+
+  private static let inset: CGFloat = 3
+
+  var body: some View {
+    GeometryReader { geo in
+      let knob = height - Self.inset * 2
+      let travel = max(1, geo.size.width - knob - Self.inset * 2)
+      let progress = min(1, offset / travel)
+
+      ZStack(alignment: .leading) {
+        Capsule().fill(Color(hex: cta.bg))
+
+        HStack(spacing: 0) {
+          // Место ручки: под ней подпись всё равно не читается.
+          Color.clear.frame(width: knob + Self.inset * 2)
+          Text(cta.label)
+            .font(font)
+            .foregroundStyle(Color(hex: cta.fg))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(maxWidth: .infinity)
+            .padding(.trailing, 8)
+        }
+        // Подпись гаснет быстрее, чем едет ручка: догоняя её, она бы
+        // читалась как надпись на самой ручке.
+        .opacity(Double(max(0, 1 - progress * 1.6)))
+
+        knobView(size: knob)
+          .offset(x: Self.inset + offset)
+      }
+      .frame(height: height)
+      .contentShape(Capsule())
+      .gesture(drag(travel: travel))
+    }
+    .frame(height: height)
+    // Кнопка сменилась — ручку вернуть. Иначе «Стоп» приедет уже сдвинутым.
+    .onChange(of: cta.kind) { _, _ in reset() }
+  }
+
+  private func knobView(size: CGFloat) -> some View {
+    ZStack {
+      Circle().fill(Color(hex: cta.fg))
+      Image(systemName: "chevron.right")
+        .font(.system(size: size * 0.42, weight: .bold))
+        .foregroundStyle(Color(hex: cta.bg))
+    }
+    .frame(width: size, height: size)
+  }
+
+  private func drag(travel: CGFloat) -> some Gesture {
+    DragGesture(minimumDistance: 0)
+      .onChanged { v in
+        guard !fired else { return }
+        offset = min(travel, max(0, v.translation.width))
+
+        // Щелчок на пороге — чтобы отпускать можно было, не глядя на экран.
+        let past = offset >= travel * Self.threshold
+        if past != armed {
+          armed = past
+          if past { WKInterfaceDevice.current().play(.click) }
+        }
+      }
+      .onEnded { _ in
+        guard !fired else { return }
+        guard armed else {
+          withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+            offset = 0
+          }
+          return
+        }
+        fired = true
+        WKInterfaceDevice.current().play(.success)
+        withAnimation(.easeOut(duration: 0.12)) { offset = travel }
+        onConfirm()
+      }
+  }
+
+  private func reset() {
+    fired = false
+    armed = false
+    offset = 0
   }
 }

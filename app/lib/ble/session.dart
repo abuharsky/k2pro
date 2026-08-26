@@ -35,8 +35,7 @@ enum SessionState {
   reconnecting;
 
   /// Линия установлена: команды уйдут, телеметрия может идти.
-  bool get isLinked =>
-      this == handshaking || this == ready || this == dormant;
+  bool get isLinked => this == handshaking || this == ready || this == dormant;
 
   /// Связи нет, но мы её добиваемся.
   bool get isSeeking => this == connecting || this == reconnecting;
@@ -97,8 +96,7 @@ SessionState? nextSessionState(SessionState s, SessionEvent e) => switch (e) {
   // после чего связь поднималась как ни в чём не бывало. Раньше на этот блик
   // заводилось переподключение — и дальше две попытки соединиться шли
   // навстречу друг другу.
-  SessionEvent.linkDown =>
-    s.isLinked ? SessionState.reconnecting : null,
+  SessionEvent.linkDown => s.isLinked ? SessionState.reconnecting : null,
 
   SessionEvent.probeSilent =>
     s == SessionState.handshaking ? SessionState.dormant : null,

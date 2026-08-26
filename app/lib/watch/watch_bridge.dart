@@ -6,6 +6,9 @@ import 'package:flutter/services.dart';
 
 import '../ble/k2_device.dart';
 import '../ble/protocol.dart';
+import '../ble/scale/scale_device.dart';
+import '../ble/transport.dart';
+import '../model/gravimetry.dart';
 import '../ble/trace.dart';
 import '../l10n/app_l10n.dart';
 import '../l10n/l10n_ext.dart';
@@ -23,6 +26,7 @@ import 'watch_snapshot.dart';
 class WatchBridge {
   WatchBridge({
     required this.device,
+    required this.scale,
     required this.prefs,
     required this.editor,
     required this.l10n,
@@ -31,11 +35,17 @@ class WatchBridge {
     device.addListener(_schedulePush);
     prefs.addListener(_schedulePush);
     editor.addListener(_schedulePush);
+    scale.addListener(_onScale);
   }
 
   static const MethodChannel _channel = MethodChannel('k2pro/watch');
 
   final K2Device device;
+
+  /// Весы. Отдельное устройство и отдельная линия: их может не быть вовсе, и
+  /// тогда на часах просто нет ни строки в списке, ни ряда веса.
+  final ScaleDevice scale;
+
   final Prefs prefs;
   final RecipeEditor editor;
 
@@ -44,6 +54,25 @@ class WatchBridge {
 
   Timer? _throttle;
   bool _pending = false;
+
+  /// То, что от весов реально попадёт на экран часов.
+  ///
+  /// Весы шлют отсчёты около десяти раз в секунду, а видно из них одну цифру
+  /// с десятой долей грамма. Гнать снимок на каждый кадр значит держать радио
+  /// занятым ради числа, которое не изменилось, — поэтому сравниваем не сырой
+  /// вес, а ровно то, что нарисуется.
+  String? _scaleDigest;
+
+  void _onScale() {
+    final next = [
+      scale.isLive ? scale.grams.toStringAsFixed(1) : '-',
+      scale.sessionState.name,
+      scale.batteryPercent,
+    ].join('|');
+    if (next == _scaleDigest) return;
+    _scaleDigest = next;
+    _schedulePush();
+  }
 
   /// Идёт поиск. Машина об этом не сообщает, а часам показать надо —
   /// поэтому засекаем сами.
@@ -59,6 +88,7 @@ class WatchBridge {
     device.removeListener(_schedulePush);
     prefs.removeListener(_schedulePush);
     editor.removeListener(_schedulePush);
+    scale.removeListener(_onScale);
     _throttle?.cancel();
     _scanTimer?.cancel();
   }
@@ -91,6 +121,7 @@ class WatchBridge {
     try {
       snapshot = buildWatchSnapshot(
         d: device,
+        scale: scale,
         t: l10n(),
         prefs: prefs,
         recipe: editor.active,
@@ -102,13 +133,54 @@ class WatchBridge {
       debugPrint('watch: snapshot failed: $e\n$st');
       return;
     }
+    final wake = _wakeDigest(snapshot);
+    final significant = wake != _lastWake;
+    _lastWake = wake;
     try {
-      await _channel.invokeMethod<void>('push', jsonEncode(snapshot));
+      await _channel.invokeMethod<void>('push', {
+        's': jsonEncode(snapshot),
+        'wake': significant,
+      });
     } on MissingPluginException {
       // Не iOS или мост не поднялся — молча живём дальше.
     } on PlatformException catch (e) {
       debugPrint('watch: push failed: ${e.message}');
     }
+  }
+
+  String? _lastWake;
+
+  /// Что стоит того, чтобы поднять часы из сна.
+  ///
+  /// Виджет Smart Stack пишет приложение на часах, а оно почти всегда спит:
+  /// разбудить его — единственный способ обновить статус. Будильник у
+  /// WatchConnectivity суточный и небогатый, поэтому дёргаем его не на каждый
+  /// снимок, а на смену смысла: связь, работа, фаза, отказ, взведённый таймер.
+  ///
+  /// Бегущих величин здесь нарочно нет. Вес и проценты меняются десять раз в
+  /// секунду и квоту сожгли бы за минуту, а срок готовности часы докручивают
+  /// сами от абсолютного времени в `startLine` — оно и стоит вместо остатка.
+  String _wakeDigest(Map<String, Object?> s) {
+    final dev = s['device'] as Map<String, Object?>?;
+    final timer = s['timer'] as Map<String, Object?>?;
+    final steps = s['steps'] as List<Object?>? ?? const [];
+    String? active;
+    for (final row in steps) {
+      if (row is Map && row['mark'] == 'active') {
+        active = row['id'] as String?;
+        break;
+      }
+    }
+    return [
+      s['link'] == 'connected',
+      dev?['name'],
+      dev?['running'],
+      dev?['state'],
+      dev?['error'],
+      active,
+      timer?['armed'],
+      timer?['startLine'],
+    ].join('|');
   }
 
   // ---- часы → телефон ----------------------------------------------------
@@ -146,22 +218,23 @@ class WatchBridge {
 
       case 'connect':
         final id = raw['id'];
-        if (id is String) {
-          await device.connect(id);
-          // Часы подключаются к тому, что видят в эфире, — машина оттуда
-          // тоже должна попасть в список добавленных.
-          prefs.remember(
-            id,
-            device.discovered
-                    .where((e) => e.id == id)
-                    .map((e) => e.advertisedName)
-                    .firstOrNull ??
-                '',
-          );
-        }
+        if (id is String) await _connect(id, raw['kind'] as String?);
 
       case 'disconnect':
-        await device.disconnect();
+        if (raw['kind'] == 'scale') {
+          await scale.disconnect();
+        } else {
+          await device.disconnect();
+        }
+
+      case 'tare':
+        await scale.tare();
+
+      case 'setYield':
+        _setYield(_int(raw['value']));
+
+      case 'setAutoStop':
+        _setAutoStop(raw['on'] == true);
 
       case 'start':
         // Ожидание подтверждения считает машина цикла — она же и толкнёт
@@ -180,6 +253,9 @@ class WatchBridge {
 
       case 'setTimer':
         _setTimer(_int(raw['minutes']), raw['on'] == true);
+
+      case 'armPreset':
+        _armPreset(_int(raw['minutes']));
     }
     // Немедленный ответ: часы рисуют оптимистично, но правду ждут отсюда.
     _schedulePush();
@@ -189,18 +265,80 @@ class WatchBridge {
   /// Пуск в том режиме, который действительно отработает.
   Future<void> _start() async {
     Trace.instance.ui('ТАП пуск с часов');
-    // Уставки должны лечь в машину раньше, чем она начнёт по ним работать —
-    // и не только накопленная правка: пока машина не ответила ни разу, на
-    // экране кэш прошлого сеанса, а что внутри неё, неизвестно.
-    await editor.push();
     final mode = device.appointment.enabled
         ? device.appointment.mode.asWorkMode
         : prefs.runMode;
-    await switch (mode) {
-      WorkMode.heatAndBrew => device.heatAndBrew(),
-      WorkMode.heat => device.heat(),
-      WorkMode.brew => device.brew(),
-    };
+    // Уставки должны лечь в машину раньше, чем она начнёт по ним работать —
+    // и не только накопленная правка: пока машина не ответила ни разу, на
+    // экране кэш прошлого сеанса, а что внутри неё, неизвестно. Порядок и
+    // ожидание держит [K2Device.start] — один на телефон и на часы.
+    await device.start(mode, apply: editor.commit());
+  }
+
+  /// Подключение к тому, что часы выбрали в списке.
+  ///
+  /// Род приезжает вместе с командой, но полагаться только на него нельзя:
+  /// снимок мог быть от прошлой версии контракта. Если рода нет — смотрим,
+  /// чем это устройство представилось в эфире.
+  Future<void> _connect(String id, String? kind) async {
+    final k = kind ?? _kindOf(id);
+    // Подключились с часов — устройство должно оказаться и в списке
+    // добавленных на телефоне: часы не заводят себе отдельной памяти.
+    final name =
+        device.discovered
+            .where((e) => e.id == id)
+            .map((e) => e.advertisedName)
+            .firstOrNull ??
+        '';
+    if (k == 'scale') {
+      await scale.connect(id);
+      prefs.rememberScale(id, name);
+      return;
+    }
+    await device.connect(id);
+    prefs.remember(id, name);
+  }
+
+  String _kindOf(String id) {
+    for (final e in device.discovered) {
+      if (e.id == id) return e.kind == DeviceKind.scale ? 'scale' : 'machine';
+    }
+    // Ничего не нашли — значит это запомненное устройство, а запоминаем мы их
+    // по отдельности.
+    return id == prefs.lastScaleId ? 'scale' : 'machine';
+  }
+
+  /// Цель по весу приезжает в десятых долях грамма: у часов один числовой
+  /// редактор на все шаги, и дробей он не знает.
+  void _setYield(int? tenths) {
+    if (tenths == null) return;
+    prefs.gravimetry = prefs.gravimetry.copyWith(
+      targetG: (tenths / 10).clamp(kYieldMin, kYieldMax),
+    );
+  }
+
+  /// Включить или выключить отсечку по весу.
+  ///
+  /// Ровно то же, что делает телефон: включение подменяет время экстракции
+  /// потолком — секунды перестают быть целью и становятся предохранителем.
+  /// Прежнее число запоминается, иначе выключение отсечки стирало бы
+  /// подобранную человеком уставку навсегда.
+  void _setAutoStop(bool on) {
+    final g = prefs.gravimetry;
+    final range = device.workParams.extraction;
+    final now = editor.active.extractionSeconds;
+
+    if (on) {
+      prefs.gravimetry = g.copyWith(
+        stopOnYield: true,
+        secondsBeforeAutoStop: now,
+      );
+      if (now < range.max) editor.edit(extractionSeconds: range.max);
+    } else {
+      final back = g.secondsBeforeAutoStop;
+      prefs.gravimetry = g.copyWith(stopOnYield: false, dropSavedSeconds: true);
+      if (back != null) editor.edit(extractionSeconds: range.clamp(back));
+    }
   }
 
   /// Уставка шага. Имена совпадают с `StepId` — они же уехали в снимке.
@@ -237,6 +375,32 @@ class WatchBridge {
         immediate: true,
       );
     }
+  }
+
+  /// Взвести пресет готовности: срок = сейчас + N, старт = срок − цикл (но не
+  /// в прошлое). Ровно то же считает лист таймера на телефоне; держать это в
+  /// мосте, а не гонять на часы, — потому что решение «когда стартовать» про
+  /// кофе, а часам про кофе знать нечего.
+  void _armPreset(int? minutes) {
+    if (minutes == null) return;
+    final a = device.appointment;
+    final mode = prefs.runMode;
+    final now = device.currentTime;
+    final cycle = watchCycleSeconds(editor.active, mode);
+    var start = now
+        .add(Duration(minutes: minutes))
+        .subtract(Duration(seconds: cycle));
+    // Пресет короче цикла — стартуем как можно раньше, прямо сейчас.
+    if (start.isBefore(now)) start = now;
+    device.setSchedule(
+      a.copyWith(
+        mode: mode.asScheduleMode,
+        hour: start.hour,
+        minute: start.minute,
+        enabled: true,
+      ),
+      immediate: true,
+    );
   }
 
   void _setTimer(int? minutes, bool on) {

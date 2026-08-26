@@ -8,6 +8,7 @@ import 'package:k2pro/ble/mock_transport.dart';
 import 'package:k2pro/ble/protocol.dart';
 import 'package:k2pro/ble/session.dart';
 import 'package:k2pro/ble/trace.dart';
+import 'package:k2pro/model/brew_phase.dart';
 
 /// Прогон вхолостую: те же сценарии, что ловились на живой машине, но на моке.
 ///
@@ -33,7 +34,10 @@ void main() {
   ) async {
     dump.writeln('\n===== $title =====');
     final from = dump.length;
-    final mock = MockTransport();
+    // Часы у мока те же, что у устройства: иначе симулятор живёт по настоящему
+    // времени, пока приложение идёт по фейковому, и цикл у него не кончается
+    // никогда — сценарий пролива просто не досматривается до конца.
+    final mock = MockTransport(now: () => tester.binding.clock.now());
     final device = K2Device(mock, now: () => tester.binding.clock.now());
     try {
       await body(mock, device);
@@ -90,6 +94,67 @@ void main() {
     ]);
   });
 
+  testWidgets('пролив целиком: фазы сменяются, секунды и градусы идут', (
+    tester,
+  ) async {
+    // То, ради чего экран и открыли: после пуска подпись меняется сама,
+    // счётчик секунд растёт, температура ползёт вверх. На живой машине это
+    // видно только вживую — здесь это утверждение, а в дампе рядом лежит
+    // готовая лента, с которой живую трассу можно сверить построчно.
+    final phases = <String>[];
+    final seconds = <String, List<int>>{};
+    final temps = <int>[];
+
+    final steps = await play(tester, 'пролив целиком', (mock, d) async {
+      d.connect('mock');
+      await settle(tester);
+
+      d.heatAndBrew();
+      for (var i = 0; i < 800 && d.progress.phase != BrewPhase.done; i++) {
+        await tester.pump(const Duration(milliseconds: 250));
+        final p = d.progress;
+        if (phases.isEmpty || phases.last != p.phase.name) {
+          phases.add(p.phase.name);
+        }
+        (seconds[p.phase.name] ??= []).add(p.elapsed.inSeconds);
+        final t = d.status?.temperatureC;
+        if (t != null) temps.add(t);
+      }
+    });
+
+    expect(steps, [
+      'сеанс idle --connectRequested--> connecting',
+      'сеанс connecting --linkUp--> handshaking',
+      'сеанс handshaking --handshakeDone--> ready',
+      'цикл idle --startRequested--> starting',
+      'цикл starting --machineBusy--> running',
+      'цикл running --machineDone--> finished',
+    ]);
+
+    // Ни одна фаза не пропущена и ни одна не повторилась: машина у уставки
+    // колеблется ±1°, и подпись не должна прыгать обратно в нагрев.
+    expect(phases, [
+      'heating',
+      'preInfusion',
+      'standstill',
+      'extraction',
+      'done',
+    ]);
+
+    for (final phase in ['heating', 'preInfusion', 'standstill', 'extraction']) {
+      final ticks = seconds[phase]!;
+      expect(
+        ticks,
+        orderedEquals(List.of(ticks)..sort()),
+        reason: '$phase: секунды идут только вперёд',
+      );
+      expect(ticks.last, greaterThan(0), reason: '$phase: счётчик пошёл');
+    }
+
+    expect(temps.first, lessThan(temps.last), reason: 'нагрев виден на экране');
+    expect(temps.reduce((a, b) => a > b ? a : b), greaterThanOrEqualTo(92));
+  });
+
   testWidgets('спящая машина: пуск проходит, опрос доводится при пробуждении', (
     tester,
   ) async {
@@ -107,16 +172,15 @@ void main() {
       expect(d.cycleState, CycleState.starting);
       expect(cmds(mock), contains(Cmd.setWorkState));
 
-      // Машина проснулась сама. Опрос доводится, а неотработавший пуск
-      // отпускает кнопку по таймауту — второй раз он уже сработает.
+      // Машина проснулась сама. Первый кадр пуска она проспала — но повтор
+      // приходится уже на проснувшуюся, и пуск доходит с того же нажатия.
+      // Раньше повторов у пуска не было вовсе, и такое нажатие пропадало
+      // молча: человек жал ещё раз, а машина включалась от старого кадра.
       mock.mute = false;
       await settle(tester, 44);
       expect(d.sessionState, SessionState.ready);
-      expect(d.cycleState, CycleState.idle);
-
-      d.heat();
-      await settle(tester);
       expect(d.cycleState, CycleState.running);
+
       unawaited(d.stop());
       await settle(tester);
     });
@@ -127,13 +191,48 @@ void main() {
       'сеанс handshaking --probeSilent--> dormant',
       'цикл idle --startRequested--> starting',
       'сеанс dormant --telemetry--> handshaking',
-      'сеанс handshaking --handshakeDone--> ready',
-      // Первый пуск машина проспала — кнопка отпускается сама.
-      'цикл starting --confirmTimeout--> idle',
-      'цикл idle --startRequested--> starting',
       'цикл starting --machineBusy--> running',
+      'сеанс handshaking --handshakeDone--> ready',
       'цикл running --stopRequested--> stopping',
       'цикл stopping --machineIdle--> idle',
+    ]);
+  });
+
+  testWidgets('машина приняла пуск и молчит: линия пересобирается', (
+    tester,
+  ) async {
+    // Живой случай 25.08 10:36: машина спала, кадры принимала — от пуска она
+    // включилась, — но не ответила ни на один и телеметрию не прислала. На
+    // этой линии ждать больше нечего: подписка до машины не доходит.
+    final steps = await play(tester, 'пересборка линии', (mock, d) async {
+      mock.mute = true;
+      d.connect('mock');
+      await settle(tester, 32);
+      expect(d.sessionState, SessionState.dormant);
+      final links = mock.connects;
+
+      d.heat();
+      await settle(tester, 40);
+      expect(mock.connects, links + 1, reason: 'линия пересобрана');
+
+      // На свежей линии машина отзывается — приложение догоняет само.
+      mock.mute = false;
+      await settle(tester, 40);
+      expect(d.sessionState, SessionState.ready);
+    });
+    expect(steps, [
+      'сеанс idle --connectRequested--> connecting',
+      'сеанс connecting --linkUp--> handshaking',
+      'сеанс handshaking --probeSilent--> dormant',
+      'цикл idle --startRequested--> starting',
+      'цикл starting --confirmTimeout--> idle',
+      // Линию рвём мы сами, поэтому обрыв идёт через переподключение — но без
+      // паузы: отложенная попытка снимается, поднимаем сразу.
+      'сеанс dormant --linkDown--> reconnecting',
+      'сеанс reconnecting --linkUp--> handshaking',
+      'сеанс handshaking --probeSilent--> dormant',
+      'сеанс dormant --telemetry--> handshaking',
+      'сеанс handshaking --handshakeDone--> ready',
     ]);
   });
 
@@ -233,8 +332,10 @@ void main() {
       'сеанс connecting --linkUp--> handshaking',
       'сеанс handshaking --handshakeDone--> ready',
       'цикл idle --startRequested--> starting',
-      'сеанс ready --silenceElapsed--> dormant',
+      // Три попытки укладываются в полторы секунды — кнопка отпускается
+      // раньше, чем сеанс успевает признать машину спящей.
       'цикл starting --confirmTimeout--> idle',
+      'сеанс ready --silenceElapsed--> dormant',
     ]);
   });
 }

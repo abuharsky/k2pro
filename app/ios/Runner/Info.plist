@@ -27,9 +27,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Приложение подключается к кофемашине K2 Pro по Bluetooth.</string>
+	<string>K2 Pro connects to your coffee machine over Bluetooth.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Приложение подключается к кофемашине K2 Pro по Bluetooth.</string>
+	<string>K2 Pro connects to your coffee machine over Bluetooth.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

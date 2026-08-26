@@ -9,19 +9,36 @@ import Foundation
 struct Snapshot: Codable, Equatable {
   /// Версия контракта. Чужую не рисуем — лучше честная заглушка, чем экран с
   /// перепутанными полями.
-  static let supportedVersion = 1
+  static let supportedVersion = 3
 
   var v: Int
+
+  /// Когда телефон собрал снимок, в миллисекундах эпохи.
+  ///
+  /// Нужна ровно для честности виджета: снимок может приехать не из эфира, а
+  /// из хранилища системы — там лежит последний контекст, и ему бывает час
+  /// отроду. Необязательное: снимок мог собрать телефон постарше.
+  var at: Double?
+
   var link: String
   var scanning: Bool
   var accent: String
   var accentText: String
   var devices: [DeviceRow]
   var device: Machine?
+
+  /// Весы, если телефон их знает. Отсутствуют — значит нет ни строки в
+  /// списке, ни ряда веса в пайплайне.
+  var scale: Scale?
   var steps: [Step]
   var modes: [ModeOption]
   var cta: Cta
+  var timer: Timer?
   var strings: [String: String]
+
+  /// Возраст снимка. Без метки считаем его свежим: старый телефон её не шлёт,
+  /// а вечно протухшим виджетом делу не поможешь.
+  var stampedAt: Date { at.map { Date(timeIntervalSince1970: $0 / 1000) } ?? Date() }
 
   var isConnected: Bool { link == "connected" }
   var isConnecting: Bool { link == "connecting" }
@@ -38,6 +55,11 @@ struct Snapshot: Codable, Equatable {
 
 struct DeviceRow: Codable, Equatable, Identifiable {
   var id: String
+
+  /// `machine` или `scale`. Решает, куда ведёт тап: машина открывает
+  /// пайплайн, весы — свой прибор.
+  var kind: String
+
   var name: String
   var rssi: Int?
   var connected: Bool
@@ -49,6 +71,35 @@ struct DeviceRow: Codable, Equatable, Identifiable {
   var battery: Int?
   var batteryPercent: Int?
   var charging: Bool
+
+  var isScale: Bool { kind == "scale" }
+}
+
+/// Весы как прибор. Всё уже посчитано и отформатировано телефоном: часы
+/// показывают строку, а не пересчитывают граммы.
+struct Scale: Codable, Equatable {
+  var id: String
+  var name: String
+  var connected: Bool
+
+  /// Отсчёты идут. Только в этом состоянии числу можно верить: линия может
+  /// быть, а весы — уже спать.
+  var live: Bool
+  var asleep: Bool
+  var status: String
+
+  /// Живой вес, готовой строкой. nil — верить нечему, показываем прочерк.
+  var grams: String?
+  var unit: String
+  var batteryPercent: Int?
+
+  /// Цель по весу, той же строкой.
+  var target: String
+  var stopOnYield: Bool
+
+  /// Переключать отсечку сейчас можно: есть чем мерить и машина не в работе.
+  var canAutoStop: Bool
+  var tareEnabled: Bool
 }
 
 struct Machine: Codable, Equatable {
@@ -59,6 +110,7 @@ struct Machine: Codable, Equatable {
   var charging: Bool
   var state: String?
   var running: Bool
+
   var model: String?
   var error: String?
 }
@@ -83,9 +135,23 @@ struct Step: Codable, Equatable, Identifiable {
   var unit: String
   var hint: String
 
+  /// Сколько знаков после запятой в значении редактора. Отсутствует — число
+  /// целое. Цель по весу приезжает в десятых долях грамма, потому что
+  /// редактор на часах один на все шаги и дробей не знает.
+  var decimals: Int?
+
   /// Вложенные ряды. Есть только у групп — например, у пролива, который на
   /// часах свёрнут в одну строку и раскрывается на своём экране.
   var children: [Step]?
+
+  /// Значение редактора так, как его читает человек: с запятой, если
+  /// телефон попросил, и с приписанной единицей.
+  func text(_ raw: Int) -> String {
+    guard let decimals, decimals > 0 else { return "\(raw)\(unit)" }
+    let divisor = pow(10.0, Double(decimals))
+    let number = String(format: "%.\(decimals)f", Double(raw) / divisor)
+    return unit.isEmpty ? number : "\(number) \(unit)"
+  }
 
   var isActive: Bool { mark == "active" }
   var isPassed: Bool { mark == "passed" }
@@ -115,4 +181,31 @@ struct Cta: Codable, Equatable {
 
   /// Пока машина не на связи, единственное осмысленное действие — подключиться.
   var isConnect: Bool { kind == "connect" }
+}
+
+/// Таймер готовности. Всё уже посчитано телефоном: часы показывают пресеты,
+/// а когда взведён — тикают отсчёт от `readyInSeconds` сами.
+struct Timer: Codable, Equatable {
+  var armed: Bool
+
+  /// Пресеты «готов через N минут».
+  var presets: [Int]
+
+  /// «мин» под крупным числом пресета.
+  var presetUnit: String
+  var hint: String
+
+  /// Минуты от полуночи — начальное положение колёс «своё время».
+  var byTime: Int
+
+  var readyLabel: String
+
+  /// Сколько секунд до готовности на момент снимка. nil — не взведён.
+  var readyInSeconds: Int?
+
+  /// «Старт в 07:20 · Полный», готовой строкой. nil — не взведён.
+  var startLine: String?
+
+  var cancel: String
+  var enable: String
 }

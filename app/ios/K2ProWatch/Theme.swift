@@ -22,16 +22,22 @@ enum K {
   enum M {
     static let cellRadius: CGFloat = 14
     static let cellPadding: CGFloat = 8
-    static let rowIcon: CGFloat = 18
-    /// Спецификация просит 84 px (42 pt), но на 45 мм это восьмая часть
-    /// экрана под одну кнопку. Тридцать четыре и палец находит, и список
-    /// не душит.
-    static let ctaHeight: CGFloat = 40
+    /// Значок ряда. Крупнее спецификации: он тут не украшение, а то, по чему
+    /// ряд находят взглядом, не читая подписи.
+    static let rowIcon: CGFloat = 21
+    /// Спецификация просит 84 px (42 pt) — и на запястье этого мало.
+    /// В кнопку на часах целятся большим пальцем другой руки, часто на ходу,
+    /// и промах стоит дороже, чем ряд списка, который из-за неё не влез.
+    static let ctaHeight: CGFloat = 48
+
+    /// Пуск сдвигом. Выше обычной кнопки: внутри ездит ручка, и ей нужно
+    /// место, чтобы читаться ручкой, а не пятном.
+    static let slideHeight: CGFloat = 54
 
     /// «Стоп» на экране работы. В него целятся на ходу и вслепую, поэтому он
     /// заметно крупнее обычного действия.
     static let stopHeight: CGFloat = 58
-    static let stepperHeight: CGFloat = 42
+    static let stepperHeight: CGFloat = 48
     static let shiftHeight: CGFloat = 32
     static let progressBar: CGFloat = 3.5
     static let statusDot: CGFloat = 7

@@ -61,6 +61,11 @@ class SheetShell extends StatelessWidget {
   /// ширину, где кнопки уезжают от значений на пол-экрана.
   static const double maxWidth = 460;
 
+  /// Предел высоты — доля экрана. Лист, дошедший до самого верха, перестаёт
+  /// быть листом и читается как второй экран; полоска фона над ним держит
+  /// связь с тем, откуда его открыли. Длинное содержимое внутри прокручивается.
+  static const double maxHeightFactor = 0.8;
+
   @override
   Widget build(BuildContext context) {
     return Align(
@@ -70,7 +75,10 @@ class SheetShell extends StatelessWidget {
       // затемнения.
       heightFactor: 1,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: maxWidth + inset * 2),
+        constraints: BoxConstraints(
+          maxWidth: maxWidth + inset * 2,
+          maxHeight: MediaQuery.sizeOf(context).height * maxHeightFactor,
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: inset),
           child: ClipRSuperellipse(
@@ -78,7 +86,10 @@ class SheetShell extends StatelessWidget {
               top: Radius.circular(K.rSheet),
             ),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: K.blurSheet, sigmaY: K.blurSheet),
+              filter: ImageFilter.blur(
+                sigmaX: K.blurSheet,
+                sigmaY: K.blurSheet,
+              ),
               child: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -175,12 +186,18 @@ class StepButton extends StatefulWidget {
     required this.plus,
     required this.enabled,
     required this.onTap,
+    this.onHold,
     this.size = 46,
   });
 
   final bool plus;
   final bool enabled;
   final VoidCallback onTap;
+
+  /// Шаг при удержании. Если задан, зажатая кнопка идёт им, а не [onTap]: так
+  /// одиночный тап делает мелкий шаг, а удержание — крупный, и широкий диапазон
+  /// проходится быстро. Не задан — удержание просто повторяет [onTap].
+  final VoidCallback? onHold;
   final double size;
 
   @override
@@ -190,6 +207,22 @@ class StepButton extends StatefulWidget {
 class _StepButtonState extends State<StepButton> {
   Timer? _repeat;
 
+  /// Сколько шагов уже сделано за это удержание. От него зависит разгон.
+  int _ticks = 0;
+
+  /// Пауза до следующего шага. Первые идут неспешно — палец должен успеть
+  /// отпустить на нужном числе, — дальше отсчёт разгоняется, иначе весь
+  /// диапазон приходится держать кнопку добрую минуту.
+  static Duration _pause(int done) => Duration(
+    milliseconds: done < 3
+        ? 190
+        : done < 9
+        ? 110
+        : done < 18
+        ? 60
+        : 34,
+  );
+
   @override
   void dispose() {
     _repeat?.cancel();
@@ -198,12 +231,29 @@ class _StepButtonState extends State<StepButton> {
 
   void _startRepeat(LongPressStartDetails _) {
     if (!widget.enabled) return;
-    HapticFeedback.selectionClick();
-    widget.onTap();
+    _ticks = 0;
+    _step();
+  }
+
+  /// Шаг удержания и заводка следующего.
+  ///
+  /// Обработчик берём из [widget] заново на каждом шаге, а не запоминаем при
+  /// нажатии. Он замкнут на значение, с которым ряд собирали: «цель минус
+  /// грамм» считается от того числа, что было на экране в тот момент.
+  /// Запомненный однажды, он на каждом тике возвращал бы одно и то же —
+  /// зажатый минус уводил вес на грамм вниз и там вставал.
+  void _step() {
     _repeat?.cancel();
-    _repeat = Timer.periodic(const Duration(milliseconds: 110), (_) {
-      if (widget.enabled) widget.onTap();
-    });
+    if (!mounted || !widget.enabled) {
+      _repeat = null;
+      return;
+    }
+    (widget.onHold ?? widget.onTap)();
+    // Отклик на каждый шаг, пока шаги редкие; на разгоне — через один, иначе
+    // вместо отсчёта в пальце сплошная вибрация.
+    if (_ticks < 9 || _ticks.isEven) HapticFeedback.selectionClick();
+    _ticks++;
+    _repeat = Timer(_pause(_ticks), _step);
   }
 
   void _stopRepeat([Object? _]) {
@@ -324,6 +374,8 @@ class SheetStepperRow extends StatelessWidget {
     required this.canUp,
     required this.onDown,
     required this.onUp,
+    this.onDownHold,
+    this.onUpHold,
     this.description,
     this.unit,
   });
@@ -340,6 +392,10 @@ class SheetStepperRow extends StatelessWidget {
   final bool canUp;
   final VoidCallback onDown;
   final VoidCallback onUp;
+
+  /// Крупный шаг по удержанию. Тап идёт [onDown]/[onUp], зажатая кнопка — этими.
+  final VoidCallback? onDownHold;
+  final VoidCallback? onUpHold;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -360,7 +416,13 @@ class SheetStepperRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        StepButton(plus: false, enabled: canDown, onTap: onDown, size: 38),
+        StepButton(
+          plus: false,
+          enabled: canDown,
+          onTap: onDown,
+          onHold: onDownHold,
+          size: 38,
+        ),
         // Число не должно липнуть к кнопкам: по 14 воздуха с каждой стороны,
         // иначе «70 сек» и «7 / 15» упираются в плюс.
         Container(
@@ -389,7 +451,13 @@ class SheetStepperRow extends StatelessWidget {
             ),
           ),
         ),
-        StepButton(plus: true, enabled: canUp, onTap: onUp, size: 38),
+        StepButton(
+          plus: true,
+          enabled: canUp,
+          onTap: onUp,
+          onHold: onUpHold,
+          size: 38,
+        ),
       ],
     ),
   );

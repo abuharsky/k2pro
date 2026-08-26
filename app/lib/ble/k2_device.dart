@@ -95,6 +95,10 @@ class K2Device extends ChangeNotifier {
   MachineError lastFault = MachineError.none;
   DateTime? lastFaultAt;
 
+  /// Сырой код той же ошибки. Для незнакомого кода это всё, что есть, —
+  /// и то, что человек продиктует в сервис.
+  int lastFaultCode = 0;
+
   /// Последний пакет 0x00 как есть. Нужен, когда машина ведёт себя не по
   /// документации: по разобранным полям видно не всё.
   String lastStateRaw = '';
@@ -303,6 +307,33 @@ class K2Device extends ChangeNotifier {
     });
   }
 
+  /// Идёт пересборка линии. Второй такой же ход только помешает.
+  bool _relinking = false;
+
+  /// Разорвать линию и поднять заново, не спрашивая человека.
+  ///
+  /// Не то же самое, что переподключение после обрыва: там линии нет, здесь
+  /// она есть и по ней уходят кадры — не приходит только ответ. Такое чинится
+  /// единственным способом: новой подпиской, а значит новым подключением.
+  Future<void> _relink() async {
+    final id = connectedId;
+    if (id == null || _relinking) return;
+    _relinking = true;
+    _log('пересобираем линию: кадры уходят, ответов нет');
+    try {
+      await _transport.disconnect();
+      // Обрыв, который мы устроили сами, успел завести отложенную попытку —
+      // она пойдёт навстречу нашей.
+      _cancelReconnect();
+      await _transport.connect(id);
+    } catch (e) {
+      _log('пересборка линии не вышла: $e');
+      _armReconnect();
+    } finally {
+      _relinking = false;
+    }
+  }
+
   void _cancelReconnect() {
     _reconnect?.cancel();
     _reconnect = null;
@@ -435,7 +466,8 @@ class K2Device extends ChangeNotifier {
     final gen = _linkGen;
     return _exclusive(
       urgent: urgent,
-      () => _requestLocked(frame, cmd, timeout: timeout, tries: tries, gen: gen),
+      () =>
+          _requestLocked(frame, cmd, timeout: timeout, tries: tries, gen: gen),
     );
   }
 
@@ -527,7 +559,12 @@ class K2Device extends ChangeNotifier {
   void _log(String s) => Trace.instance.log(s);
 
   void _onNotify(Uint8List chunk) {
-    for (final raw in _decoder.push(chunk)) {
+    final frames = _decoder.push(chunk);
+    // Декодер выбрасывает мусор молча, и до сих пор «байты пришли, но кадра из
+    // них не вышло» выглядело в трассе ровно как «не пришло ничего». Разница
+    // важная: первое — наша беда, второе — молчащая машина.
+    if (frames.isEmpty) _log('rx   ЧАНК БЕЗ КАДРА ${_hex(chunk)}');
+    for (final raw in frames) {
       Frame f;
       try {
         f = parseFrame(raw);
@@ -574,6 +611,7 @@ class K2Device extends ChangeNotifier {
           // потом не с чем.
           if (s.error != MachineError.none) {
             lastFault = s.error;
+            lastFaultCode = s.errorCode;
             lastFaultAt = _now();
           }
           // События цикла — по смене состояния, а не по каждому кадру: пока
@@ -587,7 +625,9 @@ class K2Device extends ChangeNotifier {
               _ => CycleEvent.machineIdle,
             });
           }
-          if (s.error != MachineError.none) _cycle.fire(CycleEvent.machineFault);
+          if (s.error != MachineError.none) {
+            _cycle.fire(CycleEvent.machineFault);
+          }
           _phases.onState(s.state, now: _now());
           if (_spentAt != null) {
             if (s.state.isBusy) {
@@ -666,6 +706,7 @@ class K2Device extends ChangeNotifier {
   void clearFault() {
     if (lastFault == MachineError.none) return;
     lastFault = MachineError.none;
+    lastFaultCode = 0;
     lastFaultAt = null;
     _cycle.fire(CycleEvent.faultCleared);
     notifyListeners();
@@ -764,6 +805,7 @@ class K2Device extends ChangeNotifier {
   void _recompute({bool silent = false}) {
     final s = status;
     if (s == null) return;
+    final was = progress;
     progress = _phases.compute(
       state: s.state,
       error: s.error,
@@ -771,20 +813,64 @@ class K2Device extends ChangeNotifier {
       recipe: deviceRecipe,
       now: _now(),
     );
+    // Смена фазы — то, ради чего экран и открыли: по этой строке в живой
+    // трассе видно, что до интерфейса дошли и состояние, и секунды.
+    if (was.phase != progress.phase) {
+      final total = progress.total;
+      _log(
+        'фаза ${was.phase.name} -> ${progress.phase.name}'
+        '${total == null ? '' : ' (${total.inSeconds} с)'} t=${s.temperatureC}C',
+      );
+    }
     if (!silent) notifyListeners();
   }
 
   // ---- команды ----------------------------------------------------------
 
-  Future<void> heatAndBrew() => _start(WorkMode.heatAndBrew);
-  Future<void> heat() => _start(WorkMode.heat);
-  Future<void> brew() => _start(WorkMode.brew);
+  Future<void> heatAndBrew() => start(WorkMode.heatAndBrew);
+  Future<void> heat() => start(WorkMode.heat);
+  Future<void> brew() => start(WorkMode.brew);
 
-  /// Пуск в заданном режиме. Ожидание на кнопке заводится здесь, а не на
-  /// экране: нажать могут и с часов, а ждать при этом должны оба.
-  Future<void> _start(WorkMode mode) {
+  /// Пуск: уставки, затем подтверждённая команда.
+  ///
+  /// Весь пуск целиком живёт здесь, а не на экране, по двум причинам.
+  ///
+  /// Первая: ожидание должно заводиться в момент касания. Пока запись уставок
+  /// стояла перед вызовом, цикл узнавал о нажатии только после неё — в живой
+  /// трассе через восемь секунд, и всё это время кнопка выглядела неисправной.
+  ///
+  /// Вторая: пуск обязан ждать подтверждения ровно так же, как [stop]. Раньше
+  /// он уходил одним кадром без ответа — и терялся молча. В трассе 22:54 видно
+  /// обе половины: первый 0x02 машина проглотила, второй, точно такой же,
+  /// подтвердила за 89 мс и заработала. Человек между ними жал кнопку ещё
+  /// дважды, а неподтверждённые кадры копились и срабатывали потом — со
+  /// стороны это выглядит как машина, которая включается сама.
+  ///
+  /// [apply] — уставки, которые должны лечь в машину раньше пуска.
+  Future<void> start(WorkMode mode, {Recipe? apply}) async {
     _cycle.fire(CycleEvent.startRequested);
-    return _exclusive(urgent: true, () => _send(cmdSetWorkState(true, mode)));
+    if (apply != null) await setRecipe(apply, force: true);
+    final ack = await _request(
+      cmdSetWorkState(true, mode),
+      Cmd.setWorkState,
+      tries: 3,
+      urgent: true,
+    );
+    if (ack == null) {
+      // Отпускаем кнопку сразу, не досиживая восьмисекундный таймер цикла:
+      // про этот пуск уже всё известно. Если машина всё-таки заработала, а
+      // потерялось только подтверждение, ближайшая телеметрия вернёт цикл в
+      // работу сама.
+      lastError = 'машина не подтвердила пуск';
+      _cycle.fire(CycleEvent.confirmTimeout);
+      notifyListeners();
+      // Спящая машина принимает кадры и молчит — но принимает не только в
+      // смысле «глотает». В трассе 25.08 10:36 она запустилась от 0x02, на
+      // который не ответила, и телеметрию после этого так и не прислала:
+      // подписка на этой линии до неё уже не доходит. Ждать тут нечего, линию
+      // надо пересобрать — на свежей она заговорит, если работает.
+      if (_session.state == SessionState.dormant) unawaited(_relink());
+    }
   }
 
   /// Стоп — единственная команда, которую нельзя терять: 0x02 машина
@@ -793,8 +879,19 @@ class K2Device extends ChangeNotifier {
   /// Повтор безопасен: остановленная машина на второй стоп ничего не сделает.
   Future<void> stop() async {
     _cycle.fire(CycleEvent.stopRequested);
-    final ack = await _request(cmdStop(), Cmd.setWorkState, tries: 3, urgent: true);
-    if (ack == null) lastError = 'машина не подтвердила остановку';
+    final ack = await _request(
+      cmdStop(),
+      Cmd.setWorkState,
+      tries: 3,
+      urgent: true,
+    );
+    if (ack == null) {
+      lastError = 'машина не подтвердила остановку';
+      // Не подтвердила — считаем, что всё ещё работает. Ошибиться безопаснее
+      // в эту сторону: показать «стоит», когда машина греет, хуже обратного.
+      _cycle.fire(CycleEvent.confirmTimeout);
+      notifyListeners();
+    }
   }
 
   Future<void> setTargetTemperature(int celsius) async {

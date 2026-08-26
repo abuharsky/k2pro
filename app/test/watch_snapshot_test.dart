@@ -4,6 +4,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:k2pro/ble/k2_device.dart';
 import 'package:k2pro/ble/mock_transport.dart';
+import 'package:k2pro/ble/scale/mock_scale_transport.dart';
+import 'package:k2pro/ble/scale/scale_device.dart';
 import 'package:k2pro/ble/protocol.dart';
 import 'package:k2pro/l10n/app_l10n.dart';
 import 'package:k2pro/store/prefs.dart';
@@ -19,6 +21,7 @@ void main() {
 
   late Prefs prefs;
   late K2Device device;
+  late ScaleDevice scale;
   late RecipeEditor editor;
   final t = lookupAppL10n(const Locale('en'));
 
@@ -26,14 +29,19 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     prefs = await Prefs.load();
     device = K2Device(MockTransport());
+    scale = ScaleDevice(MockScaleTransport());
   });
 
-  tearDown(() => device.dispose());
+  tearDown(() {
+    device.dispose();
+    scale.dispose();
+  });
 
   Map<String, Object?> snapshot() {
     editor = RecipeEditor(device: device, prefs: prefs);
     return buildWatchSnapshot(
       d: device,
+      scale: scale,
       t: t,
       prefs: prefs,
       recipe: editor.active,
@@ -45,6 +53,7 @@ void main() {
     editor = RecipeEditor(device: device, prefs: prefs);
     return buildWatchSnapshot(
       d: device,
+      scale: scale,
       t: t,
       prefs: prefs,
       recipe: editor.active,
@@ -131,6 +140,73 @@ void main() {
     final cta = busySnapshot()['cta'] as Map;
     expect(cta['kind'], 'start');
     expect(cta['busy'], true);
+  });
+
+  test('весы стоят в списке устройств отдельной строкой', () async {
+    prefs.lastDeviceId = 'mock-k2pro';
+    prefs.deviceName = 'Моя K2';
+    await scale.connect(kMockScaleId);
+    await Future<void>.delayed(const Duration(seconds: 1));
+
+    final devices = snapshot()['devices'] as List;
+    // Машина и весы — два разных прибора, и род у каждого свой: по нему часы
+    // и решают, какой экран открыть по тапу.
+    expect([for (final d in devices) (d as Map)['kind']], ['machine', 'scale']);
+  });
+
+  test('весы отдают готовые строки, а не граммы', () async {
+    await scale.connect(kMockScaleId);
+    await Future<void>.delayed(const Duration(seconds: 1));
+
+    final s = snapshot()['scale'] as Map;
+    expect(s['connected'], true);
+    expect(s['live'], true);
+    // Пересчитывать граммы на часах нечем и незачем: строка уже готова.
+    expect(s['grams'], isA<String>());
+    expect(s['tareEnabled'], true);
+  });
+
+  test('ряд веса появляется только с весами и уходит последним', () async {
+    await device.connect('mock-k2pro');
+    await Future<void>.delayed(const Duration(seconds: 3));
+    expect(idsOf(snapshot()), isNot(contains('weight')));
+
+    await scale.connect(kMockScaleId);
+    await Future<void>.delayed(const Duration(seconds: 1));
+
+    final s = snapshot();
+    expect(idsOf(s).last, 'weight');
+    final weight = (s['steps'] as List).last as Map;
+    // Цель едет десятыми долями грамма: редактор на часах целочисленный.
+    expect(weight['editor'], 'weight');
+    expect(weight['decimals'], 1);
+    expect(weight['editValue'], (prefs.gravimetry.targetG * 10).round());
+  });
+
+  test('снимок с весами тоже сериализуется', () async {
+    await scale.connect(kMockScaleId);
+    await Future<void>.delayed(const Duration(seconds: 1));
+    expect(() => _encode(snapshot()), returnsNormally);
+  });
+
+  test('таймер: пресеты на месте, взведён — есть отсчёт и час старта', () async {
+    await device.connect('mock-k2pro');
+    await Future<void>.delayed(const Duration(seconds: 3));
+
+    final idle = snapshot()['timer'] as Map;
+    expect(idle['armed'], false);
+    expect(idle['presets'], [5, 10, 20, 30]);
+    // Пока не взведён, живому отсчёту взяться неоткуда.
+    expect(idle['readyInSeconds'], isNull);
+    expect(idle['startLine'], isNull);
+
+    // Взвели будильник — теперь есть и остаток, и строка «Старт в …».
+    final a = device.appointment;
+    device.setSchedule(a.copyWith(enabled: true), immediate: true);
+    final armed = snapshot()['timer'] as Map;
+    expect(armed['armed'], true);
+    expect(armed['readyInSeconds'], isA<int>());
+    expect(armed['startLine'], isA<String>());
   });
 
   test('снимок сериализуется: null-ов в WatchConnectivity быть не должно', () {

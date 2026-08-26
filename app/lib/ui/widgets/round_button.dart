@@ -21,6 +21,7 @@ class RoundIconButton extends StatelessWidget {
     this.disabled = false,
     this.badge,
     this.child,
+    this.flipped = false,
     this.semanticLabel,
   });
 
@@ -47,6 +48,10 @@ class RoundIconButton extends StatelessWidget {
 
   /// Своё содержимое вместо значка (например, спираль с каплей).
   final Widget? child;
+
+  /// Отразить значок по горизонтали. Стрелки «назад» в наборе нет, а
+  /// развернуть «вперёд» честнее, чем тащить ради одной кнопки чужой значок.
+  final bool flipped;
   final String? semanticLabel;
 
   @override
@@ -76,11 +81,14 @@ class RoundIconButton extends StatelessWidget {
                 child: Center(
                   child:
                       child ??
-                      KIconView(
-                        icon,
-                        size: iconSize,
-                        color: disabled ? K.textDisabled : color,
-                        stroke: 1.8,
+                      Transform.flip(
+                        flipX: flipped,
+                        child: KIconView(
+                          icon,
+                          size: iconSize,
+                          color: disabled ? K.textDisabled : color,
+                          stroke: 1.8,
+                        ),
                       ),
                 ),
               ),

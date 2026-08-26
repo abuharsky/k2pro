@@ -189,9 +189,16 @@ PipelineModel buildPipeline({
 
   // 3. Нагрев — всюду, кроме холодного пролива.
   if (mode != WorkMode.brew) {
-    final live = phase == BrewPhase.heating && d.status != null;
-    final shown = live ? d.status!.temperatureC : recipe.temperatureC;
-    final displayCurrent = toDisplayTemp(shown, fahrenheit);
+    // Живой отсчёт показываем всё время, пока машина на связи, а не только на
+    // нагреве: сколько сейчас в бойлере — это то, ради чего на карточку и
+    // смотрят, и до пуска тоже. Уставку он не заслоняет, а встаёт перед ней:
+    // «24 → 92».
+    final heating = phase == BrewPhase.heating;
+    final status = d.isConnected ? d.status : null;
+    final displayCurrent = toDisplayTemp(
+      status?.temperatureC ?? recipe.temperatureC,
+      fahrenheit,
+    );
     final displayTarget = toDisplayTemp(recipe.temperatureC, fahrenheit);
     final fault = _heaterFault(d) ? d.lastFault : MachineError.none;
     steps.add(
@@ -200,7 +207,7 @@ PipelineModel buildPipeline({
         label: _heatLabel(t, d),
         value: fault != MachineError.none
             ? fault.action(t)
-            : live
+            : status != null
             ? t.temperatureProgress(
                 displayCurrent,
                 displayTarget,
@@ -210,8 +217,8 @@ PipelineModel buildPipeline({
         tone: StepTone.heat,
         mark: _heaterFault(d) ? StepMark.error : _markOf(phase, StepId.heat),
         // Прогрев считаем от комнатных 24°: от нуля шкала почти не двигалась бы.
-        progress: live
-            ? ((d.status!.temperatureC - 24) /
+        progress: heating && status != null
+            ? ((status.temperatureC - 24) /
                       math.max(1, recipe.temperatureC - 24))
                   .clamp(0.0, 1.0)
             : null,
@@ -330,6 +337,9 @@ CtaKind ctaKindOf(K2Device d, {required bool armed, required WorkMode mode}) {
 
 bool faultBlocksMode(MachineError fault, WorkMode mode) => switch (fault) {
   MachineError.none => false,
+  // Незнакомый код пуск не запрещает: мы не знаем, что он значит, и запереть
+  // из-за него машину — хуже, чем показать предупреждение и дать решить самому.
+  MachineError.unknown => false,
   MachineError.dryBurning || MachineError.lowBattery => true,
   MachineError.batteryOverheating ||
   MachineError.heaterShortCircuit ||

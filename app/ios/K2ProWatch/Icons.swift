@@ -39,9 +39,12 @@ private struct IconShape: Shape {
       droplet(&p, pt, scale: 1, center: nil)
 
     case "heatbrew":
-      // Режим «нагрев и пролив»: спираль сверху, капля под ней.
-      coil(&p, pt, at: 6)
-      droplet(&p, pt, scale: 0.62, center: CGPoint(x: 12, y: 16.5))
+      // Режим «нагрев и пролив»: та же спираль, что у нагрева, — обе её
+      // волны, — и капля под ней. С одной волной значок читался как другой
+      // режим: пары волн у нагрева и одной у смеси глазу не различить.
+      coil(&p, pt, at: 2.5)
+      coil(&p, pt, at: 7)
+      droplet(&p, pt, scale: 0.52, center: CGPoint(x: 12, y: 17.5))
 
     case "pause":
       p.move(to: pt(9.5, 6)); p.addLine(to: pt(9.5, 18))
@@ -56,15 +59,30 @@ private struct IconShape: Shape {
       }
 
     case "speedometer":
-      p.move(to: pt(12, 15)); p.addLine(to: pt(15.5, 10))
-      // Дуга шкалы: полукруг с запасом, опирающийся на (5,17) и (19,17).
+      // Шкала — ровно верхняя половина круга, а не дуга с подобранными на
+      // глаз углами. Начинаем с её левого конца: без этого дуга дорисовывала
+      // себе подводку от кончика стрелки, и значок выходил кривым.
+      p.move(to: pt(4, 17))
       p.addArc(
-        center: pt(12, 20.873),
+        center: pt(12, 17),
         radius: 8 * k,
-        startAngle: .degrees(208.96),
-        endAngle: .degrees(331.04),
+        startAngle: .degrees(180),
+        endAngle: .degrees(360),
         clockwise: false
       )
+      // Стрелка от оси вправо-вверх: приборы показывают «много» именно так.
+      p.move(to: pt(12, 17))
+      p.addLine(to: pt(16.2, 11.2))
+
+    case "scale":
+      // Кухонные весы: площадка, под ней корпус с окошком.
+      p.move(to: pt(3.5, 7)); p.addLine(to: pt(20.5, 7))
+      p.move(to: pt(12, 7)); p.addLine(to: pt(12, 10))
+      p.addRoundedRect(
+        in: CGRect(origin: pt(4, 10), size: CGSize(width: 16 * k, height: 9 * k)),
+        cornerSize: CGSize(width: 2 * k, height: 2 * k)
+      )
+      p.move(to: pt(9, 14.5)); p.addLine(to: pt(15, 14.5))
 
     case "alarm":
       p.addEllipse(in: CGRect(origin: pt(5, 6), size: CGSize(width: 14 * k, height: 14 * k)))

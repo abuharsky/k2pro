@@ -314,13 +314,19 @@ class AppL10nRu extends AppL10n {
   String get moreSettings => 'Ещё…';
 
   @override
-  String get timer => 'Запуск по времени';
+  String get timer => 'Таймер';
 
   @override
   String get timerOff => 'Выкл';
 
   @override
   String get secondsUnit => 'сек';
+
+  @override
+  String get hoursShort => 'ч';
+
+  @override
+  String get minutesShort => 'мин';
 
   @override
   String get stageWater => 'Вода';
@@ -394,7 +400,7 @@ class AppL10nRu extends AppL10n {
   String get stepWater => 'Вода';
 
   @override
-  String get stepAlarm => 'Запуск';
+  String get stepAlarm => 'Таймер';
 
   @override
   String get stepPause => 'Пауза';
@@ -523,6 +529,9 @@ class AppL10nRu extends AppL10n {
   String get slideToStart => 'Проведите для запуска';
 
   @override
+  String get slideToStop => 'Остановить';
+
+  @override
   String get holdToStart => 'Удерживайте для запуска';
 
   @override
@@ -567,7 +576,7 @@ class AppL10nRu extends AppL10n {
 
   @override
   String temperatureProgress(int current, int target, String unit) {
-    return '$current/$target$unit';
+    return '$current → $target$unit';
   }
 
   @override
@@ -590,4 +599,348 @@ class AppL10nRu extends AppL10n {
 
   @override
   String get decrease => 'Уменьшить';
+
+  @override
+  String get connectDevice => 'Подключить машину';
+
+  @override
+  String get welcomeSubtitle =>
+      'Подключите K2 Pro по Bluetooth — или посмотрите, как всё устроено, без железа.';
+
+  @override
+  String get demoBadge => 'ДЕМО';
+
+  @override
+  String get demoTitle => 'Демо-режим';
+
+  @override
+  String get demoStart => 'Посмотреть демо';
+
+  @override
+  String get demoAbout => 'Симулятор машины и весов';
+
+  @override
+  String get demoSection => 'Демо';
+
+  @override
+  String get stepWeight => 'Вес';
+
+  @override
+  String get weightTitle => 'Весы';
+
+  @override
+  String get weightTare => 'Тара';
+
+  @override
+  String get weightStopByWeight => 'Отсечка по весу';
+
+  @override
+  String get weightStopByWeightHint =>
+      'Пролив закончится на заданном весе. Секунды становятся предохранителем.';
+
+  @override
+  String get weightByTime => 'По времени';
+
+  @override
+  String get weightByWeight => 'По весу';
+
+  @override
+  String get weightTarget => 'Цель';
+
+  @override
+  String get weightDose => 'Доза';
+
+  @override
+  String get weightTakeCurrent => 'Взвесить дозу';
+
+  @override
+  String weightRatio(String value) {
+    return 'Отношение 1:$value';
+  }
+
+  @override
+  String get weightNoDose => 'не взвешена';
+
+  @override
+  String get weightLimit => 'Предел';
+
+  @override
+  String get weightLimitHint =>
+      'На этой отметке машина встанет, даже если вес не набрался.';
+
+  @override
+  String weightOf(String value, String total) {
+    return '$value → $total г';
+  }
+
+  @override
+  String weightGrams(String value) {
+    return '$value г';
+  }
+
+  @override
+  String get gramsUnit => 'г';
+
+  @override
+  String get weightSettling => 'Осадка';
+
+  @override
+  String weightStoppedByTime(String value, String total) {
+    return 'Остановлено по времени, $value из $total г';
+  }
+
+  @override
+  String get weightScaleLost => 'Весы пропали — дорабатываю по времени';
+
+  @override
+  String get weightNotConnected => 'Весов нет';
+
+  @override
+  String get weightConnect =>
+      'Подключите весы, чтобы взвешивать и рубить пролив по весу.';
+
+  @override
+  String get weightJournal => 'Журнал проливов';
+
+  @override
+  String get weightJournalEmpty => 'Проливов ещё не было';
+
+  @override
+  String get weightJournalClear => 'Очистить журнал';
+
+  @override
+  String weightMissOver(String value) {
+    return '+$value г';
+  }
+
+  @override
+  String weightMissUnder(String value) {
+    return '$value г';
+  }
+
+  @override
+  String get reasonWeight => 'по весу';
+
+  @override
+  String get reasonTimeout => 'по времени';
+
+  @override
+  String get reasonManual => 'вручную';
+
+  @override
+  String get reasonLinkLost => 'связь пропала';
+
+  @override
+  String scaleBattery(int value) {
+    return '$value%';
+  }
+
+  @override
+  String get scaleAsleep => 'спят';
+
+  @override
+  String get journalAccuracy => 'Точность';
+
+  @override
+  String get journalPours => 'Проливы';
+
+  @override
+  String get journalCount => 'Проливов';
+
+  @override
+  String get journalAvgMiss => 'Средний промах';
+
+  @override
+  String get journalAvgTime => 'Среднее время';
+
+  @override
+  String get descYield =>
+      'Сколько должно оказаться в чашке. На этой отметке пролив закончится.';
+
+  @override
+  String get journalTiming => 'Время пролива';
+
+  @override
+  String get journalTimingHint =>
+      'При одной дозе и одной цели ровное время значит ровный помол.';
+
+  @override
+  String weightOnScale(String value) {
+    return 'сейчас на весах $value г';
+  }
+
+  @override
+  String get journalStats => 'Статистика';
+
+  @override
+  String get shotNoCurve =>
+      'Графика у этого пролива нет — весы не были подключены.';
+
+  @override
+  String get shotParams => 'Подробности';
+
+  @override
+  String get shotYield => 'В чашке';
+
+  @override
+  String get shotRatio => 'Отношение';
+
+  @override
+  String get shotTime => 'Время';
+
+  @override
+  String get shotEnded => 'Закончился';
+
+  @override
+  String get chartWeight => 'Вес';
+
+  @override
+  String get chartFlow => 'Поток';
+
+  @override
+  String get chartTemperature => 'Температура';
+
+  @override
+  String get today => 'Сегодня';
+
+  @override
+  String get timerReadyIn => 'Готов через';
+
+  @override
+  String get timerReadyHint =>
+      'Машина начнёт заранее, чтобы кофе был готов точно к сроку.';
+
+  @override
+  String timerStartAt(String time) {
+    return 'Старт в $time';
+  }
+
+  @override
+  String get timerByTime => 'Ко времени';
+
+  @override
+  String get timerSchedule => 'Запланировать';
+
+  @override
+  String get adviceAfterShot => 'Советы после пролива';
+
+  @override
+  String get brewAdvice => 'Советы по приготовлению';
+
+  @override
+  String get adviceHeadline => 'Как получилось?';
+
+  @override
+  String get adviceBannerBody => 'Подстроим рецепт по вкусу';
+
+  @override
+  String get adviceTune => 'Настроить';
+
+  @override
+  String get adviceTasteTitle => 'Вкус';
+
+  @override
+  String get adviceBodyTitle => 'Тело';
+
+  @override
+  String get tasteSour => 'Кислый';
+
+  @override
+  String get tasteSalty => 'Солёный';
+
+  @override
+  String get tasteEmpty => 'Пустой';
+
+  @override
+  String get tasteSweet => 'Сладкий';
+
+  @override
+  String get tasteBitter => 'Горький';
+
+  @override
+  String get bodyThin => 'Нет тела';
+
+  @override
+  String get bodyFull => 'Есть тело';
+
+  @override
+  String get adviceWhySour =>
+      'Кисло — не хватило экстракции: вода прошла слишком быстро.';
+
+  @override
+  String get adviceWhySalty => 'Солёно — экстракция оборвалась рано.';
+
+  @override
+  String get adviceWhyBitter =>
+      'Горчит — переэкстракция: вода шла слишком долго.';
+
+  @override
+  String get adviceWhyEmpty =>
+      'Пусто — слабо и водянисто: кофе мало на объём воды.';
+
+  @override
+  String get adviceWhySweet => 'Сладко и сбалансированно — в точку.';
+
+  @override
+  String get adviceWhyThin => 'Тонко — не хватает плотности.';
+
+  @override
+  String get adviceControls => 'Что делать';
+
+  @override
+  String get advicePick => 'Отметьте вкус и тело — подскажу, что тронуть.';
+
+  @override
+  String get adviceNoChange => 'Ничего менять не нужно.';
+
+  @override
+  String get adviceRatioHint => 'Соотношение плотнее — в диалоге весов.';
+
+  @override
+  String get tasteAstringent => 'Терпкий';
+
+  @override
+  String get adviceWhyAstringent =>
+      'Вяжет — переэкстракция и пересушенная таблетка.';
+
+  @override
+  String get fixGrindFiner => 'Смолоть мельче';
+
+  @override
+  String get fixGrindCoarser => 'Смолоть крупнее';
+
+  @override
+  String get fixDoseMore => 'Больше кофе';
+
+  @override
+  String get fixRatioShorter => 'Короче выход';
+
+  @override
+  String get fixGrindFinerWhy =>
+      'Главный рычаг: мельче помол — вода идёт медленнее, экстракции больше.';
+
+  @override
+  String get fixGrindCoarserWhy =>
+      'Главный рычаг: крупнее помол — вода быстрее, экстракции меньше.';
+
+  @override
+  String get fixDoseMoreWhy => 'Добавьте закладку — чашка плотнее и крепче.';
+
+  @override
+  String get fixRatioShorterWhy =>
+      'Убавьте цель на весах — меньше воды, плотнее чашка.';
+
+  @override
+  String get fixTempUpWhy =>
+      'Если помол уже настроен — поднимите температуру на градус-два.';
+
+  @override
+  String get fixTempDownWhy =>
+      'Если помол уже настроен — опустите температуру на градус-два.';
+
+  @override
+  String get adviceLastResort => 'В крайнем случае';
+
+  @override
+  String get adviceScaleOff => 'Подключите весы, чтобы управлять выходом.';
 }

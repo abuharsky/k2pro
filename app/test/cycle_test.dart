@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:k2pro/ble/k2_device.dart';
 import 'package:k2pro/ble/mock_transport.dart';
+import 'package:k2pro/ble/scale/mock_scale_transport.dart';
+import 'package:k2pro/ble/scale/scale_device.dart';
 import 'package:k2pro/ble/cycle.dart';
 import 'package:k2pro/model/brew_phase.dart';
 import 'package:k2pro/ble/protocol.dart';
@@ -57,7 +59,8 @@ void main() {
     }
   }
 
-  Future<void> slideStart(WidgetTester tester) async {
+  /// Провести по главной кнопке — ею подтверждают и пуск, и стоп.
+  Future<void> slideCta(WidgetTester tester) async {
     final bar = tester.getRect(find.byType(BottomBar));
     final gesture = await tester.startGesture(
       Offset(bar.left + 48, bar.center.dy),
@@ -76,9 +79,10 @@ void main() {
 
     final mock = MockTransport();
     final device = K2Device(mock);
+    final scale = ScaleDevice(MockScaleTransport());
     final editor = RecipeEditor(device: device, prefs: prefs);
     await tester.pumpWidget(
-      K2App(device: device, prefs: prefs, editor: editor),
+      K2App(device: device, scale: scale, prefs: prefs, editor: editor),
     );
     await tester.pump();
 
@@ -127,7 +131,7 @@ void main() {
 
       // --- пуск -----------------------------------------------------------
       final beforeStart = mock.sent.length;
-      await slideStart(tester);
+      await slideCta(tester);
       await settle(tester);
 
       final afterStart = mock.sent.skip(beforeStart).map((f) => f[4]).toList();
@@ -140,16 +144,19 @@ void main() {
         ]),
         reason: 'уставки ложатся в машину раньше, чем она по ним заработает',
       );
-      expect(payloadOf(mock, Cmd.setWorkState)[0], 1, reason: 'пуск');
+      // Нагрузка 0x02 — это [режим, пуск]. Проверяем именно флаг: байт режима
+      // совпадал с единицей случайно, и утверждение про него ничего не ловило.
+      expect(payloadOf(mock, Cmd.setWorkState)[1], 1, reason: 'пуск');
       expect(device.isBusy, isTrue);
       expect(device.cycleState, CycleState.running);
       expect(find.text('Stop'), findsOneWidget);
 
       // --- стоп -----------------------------------------------------------
-      await tester.tap(find.text('Stop'));
+      // Останов подтверждают тем же жестом, что и пуск.
+      await slideCta(tester);
       await settle(tester);
 
-      expect(payloadOf(mock, Cmd.setWorkState)[0], 0, reason: 'останов');
+      expect(payloadOf(mock, Cmd.setWorkState)[1], 0, reason: 'останов');
       expect(device.isBusy, isFalse);
       expect(device.cycleState, CycleState.idle);
       expect(find.text('Slide to start'), findsOneWidget);
@@ -241,6 +248,77 @@ void main() {
       CycleState.idle,
       reason: 'вечный спиннер хуже неотработавшей кнопки',
     );
+    });
+  });
+
+  testWidgets('ожидание заводится в момент касания, до записи уставок', (
+    tester,
+  ) async {
+    // Живая жалоба: «он не проводится». Пока запись уставок стояла перед
+    // пуском, цикл узнавал о нажатии только после неё — в трассе через восемь
+    // секунд, и всё это время кнопка выглядела неисправной.
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final mock = MockTransport();
+    final device = K2Device(mock);
+    final scale = ScaleDevice(MockScaleTransport());
+    final editor = RecipeEditor(device: device, prefs: prefs);
+    await tester.pumpWidget(
+      K2App(device: device, scale: scale, prefs: prefs, editor: editor),
+    );
+    await tester.pump();
+
+    try {
+      device.connect('mock');
+      await settle(tester);
+
+      final before = mock.sent.length;
+      await slideCta(tester);
+
+      expect(
+        device.cycleState,
+        CycleState.starting,
+        reason: 'кнопка отзывается на касание, а не на конец записи уставок',
+      );
+      expect(
+        mock.sent.skip(before).map((f) => f[4]),
+        isNot(contains(Cmd.setWorkState)),
+        reason: 'кадр пуска ещё впереди — уставки пишутся первыми',
+      );
+
+      await settle(tester);
+      expect(device.cycleState, CycleState.running);
+    } finally {
+      device.dispose();
+      await tester.pump();
+    }
+  });
+
+  testWidgets('машина проглотила кадр пуска: повтор доводит то же нажатие', (
+    tester,
+  ) async {
+    // Трасса 22:54: первый 0x02 машина проглотила молча, второй — точно такой
+    // же — подтвердила за 89 мс. Пока у пуска не было повторов, такое нажатие
+    // пропадало, человек жал ещё раз, а неподтверждённые кадры срабатывали
+    // потом — со стороны это машина, которая включается сама.
+    await withDevice(tester, (mock, device) async {
+      device.connect('mock');
+      await settle(tester);
+      mock.swallowStarts = 1;
+
+      device.heat();
+      await tester.pump();
+      expect(device.cycleState, CycleState.starting);
+
+      await settle(tester);
+      expect(
+        cmds(mock).where((c) => c == Cmd.setWorkState).length,
+        2,
+        reason: 'первый кадр потерян, второй подтверждён',
+      );
+      expect(device.cycleState, CycleState.running);
     });
   });
 

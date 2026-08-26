@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:k2pro/ble/k2_device.dart';
 import 'package:k2pro/ble/mock_transport.dart';
+import 'package:k2pro/ble/scale/mock_scale_transport.dart';
+import 'package:k2pro/ble/scale/scale_device.dart';
 import 'package:k2pro/ble/protocol.dart';
 import 'package:k2pro/main.dart';
+import 'package:k2pro/model/recipe.dart';
 import 'package:k2pro/store/prefs.dart';
 import 'package:k2pro/store/recipe_editor.dart';
 import 'package:k2pro/ui/sheets/sheet.dart';
-import 'package:k2pro/ui/theme.dart';
 import 'package:k2pro/ui/widgets/cycle_timeline.dart';
 import 'package:k2pro/ui/widgets/bottom_bar.dart';
 import 'package:k2pro/ui/widgets/round_button.dart';
@@ -34,9 +36,10 @@ void main() {
     addTearDown(tester.view.reset);
 
     final device = K2Device(transport ?? MockTransport());
+    final scale = ScaleDevice(MockScaleTransport());
     final editor = RecipeEditor(device: device, prefs: prefs);
     await tester.pumpWidget(
-      K2App(device: device, prefs: prefs, editor: editor),
+      K2App(device: device, scale: scale, prefs: prefs, editor: editor),
     );
     await tester.pump();
     try {
@@ -53,7 +56,8 @@ void main() {
     }
   }
 
-  Future<void> slideStart(WidgetTester tester) async {
+  /// Провести по главной кнопке. Ею подтверждают и пуск с нагревом, и стоп.
+  Future<void> slideCta(WidgetTester tester) async {
     final bar = tester.getRect(find.byType(BottomBar));
     final gesture = await tester.startGesture(
       Offset(bar.left + 48, bar.center.dy),
@@ -188,6 +192,9 @@ void main() {
       await settle(tester);
 
       expect(prefs.devices.single.id, 'mock-k2pro');
+      // Рекламное имя живёт в списке; в шапке, пока машину не назвали
+      // своими словами, стоит «K2 Pro».
+      expect(find.text('K2 Pro'), findsOneWidget);
 
       // Разрыв связи не выкидывает машину из списка: она стоит на своём
       // месте с пометкой, что сейчас её не слышно.
@@ -211,7 +218,8 @@ void main() {
 
   testWidgets('забыть машину можно только из меню', (tester) async {
     SharedPreferences.setMockInitialValues({
-      'devices': '[{"id":"mock-k2pro","name":"Kitchen"}]',
+      'devices':
+          '[{"id":"mock-k2pro","name":"BL_PCM03_SIM","alias":"Kitchen"}]',
       'last_device_id': 'mock-k2pro',
     });
     prefs = await Prefs.load();
@@ -223,6 +231,7 @@ void main() {
 
       await tester.tap(find.byType(RoundIconButton).first);
       await settle(tester);
+      await tester.ensureVisible(find.text('Forget device'));
       await tester.tap(find.text('Forget device'));
       await settle(tester);
       await tester.tap(find.text('Forget'));
@@ -334,16 +343,46 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
       expect(device.isBusy, isFalse);
 
-      await slideStart(tester);
+      await slideCta(tester);
       await settle(tester);
 
       expect(device.isBusy, isTrue);
       expect(find.text('Stop'), findsOneWidget);
 
-      await tester.tap(find.text('Stop'));
+      // Стоп тоже жестом: тап по идущему проливу цикл не рвёт.
+      await tester.tapAt(tester.getRect(find.byType(BottomBar)).center);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(device.isBusy, isTrue);
+
+      await slideCta(tester);
       await settle(tester);
       expect(device.isBusy, isFalse);
     });
+  });
+
+  testWidgets('баннер разбора выключается в настройках', (tester) async {
+    // Часы мока перематываемы: цикл он считает по своему времени, и без
+    // перемотки готовности не дождаться — фейковый pump двигает таймеры,
+    // а не часы.
+    var clock = DateTime(2026, 1, 1, 8);
+    await withApp(tester, (device) async {
+      device.connect('mock');
+      await settle(tester);
+      await slideCta(tester);
+      await settle(tester);
+
+      clock = clock.add(const Duration(minutes: 5));
+      for (var i = 0; i < 8; i++) {
+        await settle(tester);
+      }
+      expect(find.text('How did it turn out?'), findsOneWidget);
+
+      // Кто уже свёл рецепт, гасит баннер насовсем — и он не возвращается
+      // ни с этой чашкой, ни со следующей.
+      prefs.adviceBanner = false;
+      await tester.pump();
+      expect(find.text('How did it turn out?'), findsNothing);
+    }, transport: MockTransport(now: () => clock));
   });
 
   testWidgets('ошибка блокирует пуск до явной проверки', (tester) async {
@@ -387,7 +426,11 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey(StepKind.alarm)));
       await settle(tester);
-      await tester.tap(find.byType(KSwitch).first);
+      // Быстрые пресеты — без диалога; подтверждение осталось на «Ко времени».
+      await tester.tap(find.text('At a set time'));
+      await settle(tester);
+      await tester.ensureVisible(find.text('Schedule'));
+      await tester.tap(find.text('Schedule'));
       await tester.pump();
 
       expect(find.text('Enable scheduled start?'), findsOneWidget);
@@ -397,6 +440,39 @@ void main() {
       await settle(tester);
       expect(device.appointment.enabled, isTrue);
     });
+  });
+
+  test('каждый режим помнит свой набор уставок', () async {
+    SharedPreferences.setMockInitialValues({});
+    final p = await Prefs.load();
+
+    // Эспрессо на «нагрев + пролив»: предсмачивание и паузы важны.
+    p.runMode = WorkMode.heatAndBrew;
+    p.recipe = Recipe.fallback.copyWith(
+      preInfusionSeconds: 6,
+      standstillSeconds: 7,
+      extractionSeconds: 40,
+    );
+
+    // Американо на «проливе»: просто кипяток, без пауз.
+    p.runMode = WorkMode.brew;
+    p.recipe = Recipe.fallback.copyWith(
+      preInfusionSeconds: 0,
+      standstillSeconds: 0,
+      extractionSeconds: 30,
+    );
+
+    // Наборы не перетёрли друг друга.
+    expect(p.recipeFor(WorkMode.heatAndBrew).extractionSeconds, 40);
+    expect(p.recipeFor(WorkMode.heatAndBrew).preInfusionSeconds, 6);
+    expect(p.recipeFor(WorkMode.brew).extractionSeconds, 30);
+    expect(p.recipeFor(WorkMode.brew).preInfusionSeconds, 0);
+
+    // Активный рецепт следует за режимом.
+    p.runMode = WorkMode.heatAndBrew;
+    expect(p.recipe.extractionSeconds, 40);
+    p.runMode = WorkMode.brew;
+    expect(p.recipe.extractionSeconds, 30);
   });
 
   testWidgets('выбор режима в меню пуска запоминается', (tester) async {

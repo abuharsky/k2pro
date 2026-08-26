@@ -169,11 +169,27 @@ void main() {
       1,
       reason: 'помпа всё равно гонит',
     );
-    expect(
-      wetting.frameOf(SceneLayer.puck),
-      1,
-      reason: 'смочена со второй половины',
-    );
+    expect(wetting.frameOf(SceneLayer.puck), 1, reason: 'таблетка смочена');
+  });
+
+  test('смачивание идёт без нагрева и видно сразу', () {
+    // Нагрев к этому моменту закончился: спираль обесточена, идёт вода.
+    for (final fraction in [0.0, 0.4, 1.0]) {
+      final wetting = state(
+        BrewPhase.preInfusion,
+        live: true,
+        fraction: fraction,
+      );
+      expect(wetting.frameOf(SceneLayer.tank), 0, reason: 'спираль погасла');
+      expect(wetting.frameOf(SceneLayer.puck), 1, reason: 'доля $fraction');
+      expect(wetting.zone, SceneLayer.puck);
+    }
+
+    // Пауза после смачивания: воду не гонят, таблетка стоит мокрая.
+    final pause = state(BrewPhase.standstill, live: true);
+    expect(pause.frameOf(SceneLayer.tank), 0);
+    expect(pause.frameOf(SceneLayer.pump), 0);
+    expect(pause.frameOf(SceneLayer.puck), 1);
   });
 
   test('экстракция считает бак, таблетку и чашку по прогрессу', () {

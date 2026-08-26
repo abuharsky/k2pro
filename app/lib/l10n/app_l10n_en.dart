@@ -314,13 +314,19 @@ class AppL10nEn extends AppL10n {
   String get moreSettings => 'More…';
 
   @override
-  String get timer => 'Scheduled start';
+  String get timer => 'Timer';
 
   @override
   String get timerOff => 'Off';
 
   @override
   String get secondsUnit => 'sec';
+
+  @override
+  String get hoursShort => 'h';
+
+  @override
+  String get minutesShort => 'min';
 
   @override
   String get stageWater => 'Water';
@@ -395,7 +401,7 @@ class AppL10nEn extends AppL10n {
   String get stepWater => 'Water';
 
   @override
-  String get stepAlarm => 'Scheduled start';
+  String get stepAlarm => 'Timer';
 
   @override
   String get stepPause => 'Pause';
@@ -524,6 +530,9 @@ class AppL10nEn extends AppL10n {
   String get slideToStart => 'Slide to start';
 
   @override
+  String get slideToStop => 'Stop';
+
+  @override
   String get holdToStart => 'Hold to start';
 
   @override
@@ -568,7 +577,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String temperatureProgress(int current, int target, String unit) {
-    return '$current/$target$unit';
+    return '$current → $target$unit';
   }
 
   @override
@@ -591,4 +600,349 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get decrease => 'Decrease';
+
+  @override
+  String get connectDevice => 'Connect a machine';
+
+  @override
+  String get welcomeSubtitle =>
+      'Connect your K2 Pro over Bluetooth — or see how it all works without the hardware.';
+
+  @override
+  String get demoBadge => 'DEMO';
+
+  @override
+  String get demoTitle => 'Demo mode';
+
+  @override
+  String get demoStart => 'Try the demo';
+
+  @override
+  String get demoAbout => 'Simulated machine and scale';
+
+  @override
+  String get demoSection => 'Demo';
+
+  @override
+  String get stepWeight => 'Weight';
+
+  @override
+  String get weightTitle => 'Scale';
+
+  @override
+  String get weightTare => 'Tare';
+
+  @override
+  String get weightStopByWeight => 'Stop by weight';
+
+  @override
+  String get weightStopByWeightHint =>
+      'The pour ends at the target weight. Seconds become a safety limit.';
+
+  @override
+  String get weightByTime => 'By time';
+
+  @override
+  String get weightByWeight => 'By weight';
+
+  @override
+  String get weightTarget => 'Target';
+
+  @override
+  String get weightDose => 'Dose';
+
+  @override
+  String get weightTakeCurrent => 'Weigh the dose';
+
+  @override
+  String weightRatio(String value) {
+    return 'Ratio 1:$value';
+  }
+
+  @override
+  String get weightNoDose => 'not weighed';
+
+  @override
+  String get weightLimit => 'Limit';
+
+  @override
+  String get weightLimitHint =>
+      'The machine will stop here even if the target is not reached.';
+
+  @override
+  String weightOf(String value, String total) {
+    return '$value → $total g';
+  }
+
+  @override
+  String weightGrams(String value) {
+    return '$value g';
+  }
+
+  @override
+  String get gramsUnit => 'g';
+
+  @override
+  String get weightSettling => 'Settling';
+
+  @override
+  String weightStoppedByTime(String value, String total) {
+    return 'Stopped by time, $value of $total g';
+  }
+
+  @override
+  String get weightScaleLost => 'Scale lost — finishing on time';
+
+  @override
+  String get weightNotConnected => 'No scale';
+
+  @override
+  String get weightConnect =>
+      'Connect a scale to weigh and to stop the pour by weight.';
+
+  @override
+  String get weightJournal => 'Pour log';
+
+  @override
+  String get weightJournalEmpty => 'No pours yet';
+
+  @override
+  String get weightJournalClear => 'Clear log';
+
+  @override
+  String weightMissOver(String value) {
+    return '+$value g';
+  }
+
+  @override
+  String weightMissUnder(String value) {
+    return '$value g';
+  }
+
+  @override
+  String get reasonWeight => 'by weight';
+
+  @override
+  String get reasonTimeout => 'by time';
+
+  @override
+  String get reasonManual => 'by hand';
+
+  @override
+  String get reasonLinkLost => 'link lost';
+
+  @override
+  String scaleBattery(int value) {
+    return '$value%';
+  }
+
+  @override
+  String get scaleAsleep => 'asleep';
+
+  @override
+  String get journalAccuracy => 'Accuracy';
+
+  @override
+  String get journalPours => 'Pours';
+
+  @override
+  String get journalCount => 'Pours';
+
+  @override
+  String get journalAvgMiss => 'Avg miss';
+
+  @override
+  String get journalAvgTime => 'Avg time';
+
+  @override
+  String get descYield =>
+      'How much should end up in the cup. The pour stops here.';
+
+  @override
+  String get journalTiming => 'Shot time';
+
+  @override
+  String get journalTimingHint =>
+      'At the same dose and target, steady time means a steady grind.';
+
+  @override
+  String weightOnScale(String value) {
+    return '$value g on the scale';
+  }
+
+  @override
+  String get journalStats => 'Statistics';
+
+  @override
+  String get shotNoCurve =>
+      'No graph for this pour — there was no scale connected.';
+
+  @override
+  String get shotParams => 'Details';
+
+  @override
+  String get shotYield => 'In the cup';
+
+  @override
+  String get shotRatio => 'Ratio';
+
+  @override
+  String get shotTime => 'Time';
+
+  @override
+  String get shotEnded => 'Ended';
+
+  @override
+  String get chartWeight => 'Weight';
+
+  @override
+  String get chartFlow => 'Flow';
+
+  @override
+  String get chartTemperature => 'Temperature';
+
+  @override
+  String get today => 'Today';
+
+  @override
+  String get timerReadyIn => 'Ready in';
+
+  @override
+  String get timerReadyHint =>
+      'The machine starts early so the coffee is ready right on time.';
+
+  @override
+  String timerStartAt(String time) {
+    return 'Starts at $time';
+  }
+
+  @override
+  String get timerByTime => 'At a set time';
+
+  @override
+  String get timerSchedule => 'Schedule';
+
+  @override
+  String get adviceAfterShot => 'Advice after each shot';
+
+  @override
+  String get brewAdvice => 'Brewing tips';
+
+  @override
+  String get adviceHeadline => 'How did it turn out?';
+
+  @override
+  String get adviceBannerBody => 'Tune the recipe to taste';
+
+  @override
+  String get adviceTune => 'Tune';
+
+  @override
+  String get adviceTasteTitle => 'Taste';
+
+  @override
+  String get adviceBodyTitle => 'Body';
+
+  @override
+  String get tasteSour => 'Sour';
+
+  @override
+  String get tasteSalty => 'Salty';
+
+  @override
+  String get tasteEmpty => 'Watery';
+
+  @override
+  String get tasteSweet => 'Sweet';
+
+  @override
+  String get tasteBitter => 'Bitter';
+
+  @override
+  String get bodyThin => 'Thin';
+
+  @override
+  String get bodyFull => 'Full';
+
+  @override
+  String get adviceWhySour =>
+      'Sour — under-extracted: the water ran through too fast.';
+
+  @override
+  String get adviceWhySalty => 'Salty — extraction cut off too early.';
+
+  @override
+  String get adviceWhyBitter =>
+      'Bitter — over-extracted: the water ran too long.';
+
+  @override
+  String get adviceWhyEmpty =>
+      'Watery — weak: too little coffee for the water.';
+
+  @override
+  String get adviceWhySweet => 'Sweet and balanced — right on point.';
+
+  @override
+  String get adviceWhyThin => 'Thin — lacks density.';
+
+  @override
+  String get adviceControls => 'What to do';
+
+  @override
+  String get advicePick =>
+      'Pick taste and body — I\'ll suggest what to adjust.';
+
+  @override
+  String get adviceNoChange => 'Nothing to change.';
+
+  @override
+  String get adviceRatioHint => 'Tighten the ratio in the scale dialog.';
+
+  @override
+  String get tasteAstringent => 'Astringent';
+
+  @override
+  String get adviceWhyAstringent =>
+      'Astringent — over-extracted, a parched puck.';
+
+  @override
+  String get fixGrindFiner => 'Grind finer';
+
+  @override
+  String get fixGrindCoarser => 'Grind coarser';
+
+  @override
+  String get fixDoseMore => 'More coffee';
+
+  @override
+  String get fixRatioShorter => 'Shorter yield';
+
+  @override
+  String get fixGrindFinerWhy =>
+      'The main lever: finer grind slows the water — more extraction.';
+
+  @override
+  String get fixGrindCoarserWhy =>
+      'The main lever: coarser grind speeds the water — less extraction.';
+
+  @override
+  String get fixDoseMoreWhy => 'Add more grounds — a denser, stronger cup.';
+
+  @override
+  String get fixRatioShorterWhy =>
+      'Lower the scale target — less water, a denser cup.';
+
+  @override
+  String get fixTempUpWhy =>
+      'If the grind is dialed in — raise the temperature a degree or two.';
+
+  @override
+  String get fixTempDownWhy =>
+      'If the grind is dialed in — lower the temperature a degree or two.';
+
+  @override
+  String get adviceLastResort => 'Last resort';
+
+  @override
+  String get adviceScaleOff => 'Connect a scale to control the yield.';
 }

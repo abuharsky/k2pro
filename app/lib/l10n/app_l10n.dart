@@ -682,7 +682,7 @@ abstract class AppL10n {
   /// No description provided for @timer.
   ///
   /// In en, this message translates to:
-  /// **'Scheduled start'**
+  /// **'Timer'**
   String get timer;
 
   /// No description provided for @timerOff.
@@ -696,6 +696,18 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'sec'**
   String get secondsUnit;
+
+  /// No description provided for @hoursShort.
+  ///
+  /// In en, this message translates to:
+  /// **'h'**
+  String get hoursShort;
+
+  /// No description provided for @minutesShort.
+  ///
+  /// In en, this message translates to:
+  /// **'min'**
+  String get minutesShort;
 
   /// No description provided for @stageWater.
   ///
@@ -838,7 +850,7 @@ abstract class AppL10n {
   /// No description provided for @stepAlarm.
   ///
   /// In en, this message translates to:
-  /// **'Scheduled start'**
+  /// **'Timer'**
   String get stepAlarm;
 
   /// No description provided for @stepPause.
@@ -1075,6 +1087,12 @@ abstract class AppL10n {
   /// **'Slide to start'**
   String get slideToStart;
 
+  /// No description provided for @slideToStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
+  String get slideToStop;
+
   /// No description provided for @holdToStart.
   ///
   /// In en, this message translates to:
@@ -1150,7 +1168,7 @@ abstract class AppL10n {
   /// No description provided for @temperatureProgress.
   ///
   /// In en, this message translates to:
-  /// **'{current}/{target}{unit}'**
+  /// **'{current} → {target}{unit}'**
   String temperatureProgress(int current, int target, String unit);
 
   /// No description provided for @temperatureUnit.
@@ -1194,6 +1212,624 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Decrease'**
   String get decrease;
+
+  /// No description provided for @connectDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect a machine'**
+  String get connectDevice;
+
+  /// No description provided for @welcomeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your K2 Pro over Bluetooth — or see how it all works without the hardware.'**
+  String get welcomeSubtitle;
+
+  /// No description provided for @demoBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'DEMO'**
+  String get demoBadge;
+
+  /// No description provided for @demoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo mode'**
+  String get demoTitle;
+
+  /// No description provided for @demoStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Try the demo'**
+  String get demoStart;
+
+  /// No description provided for @demoAbout.
+  ///
+  /// In en, this message translates to:
+  /// **'Simulated machine and scale'**
+  String get demoAbout;
+
+  /// No description provided for @demoSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo'**
+  String get demoSection;
+
+  /// No description provided for @stepWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight'**
+  String get stepWeight;
+
+  /// No description provided for @weightTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Scale'**
+  String get weightTitle;
+
+  /// No description provided for @weightTare.
+  ///
+  /// In en, this message translates to:
+  /// **'Tare'**
+  String get weightTare;
+
+  /// No description provided for @weightStopByWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop by weight'**
+  String get weightStopByWeight;
+
+  /// No description provided for @weightStopByWeightHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The pour ends at the target weight. Seconds become a safety limit.'**
+  String get weightStopByWeightHint;
+
+  /// No description provided for @weightByTime.
+  ///
+  /// In en, this message translates to:
+  /// **'By time'**
+  String get weightByTime;
+
+  /// No description provided for @weightByWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'By weight'**
+  String get weightByWeight;
+
+  /// No description provided for @weightTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Target'**
+  String get weightTarget;
+
+  /// No description provided for @weightDose.
+  ///
+  /// In en, this message translates to:
+  /// **'Dose'**
+  String get weightDose;
+
+  /// No description provided for @weightTakeCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Weigh the dose'**
+  String get weightTakeCurrent;
+
+  /// No description provided for @weightRatio.
+  ///
+  /// In en, this message translates to:
+  /// **'Ratio 1:{value}'**
+  String weightRatio(String value);
+
+  /// No description provided for @weightNoDose.
+  ///
+  /// In en, this message translates to:
+  /// **'not weighed'**
+  String get weightNoDose;
+
+  /// No description provided for @weightLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Limit'**
+  String get weightLimit;
+
+  /// No description provided for @weightLimitHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The machine will stop here even if the target is not reached.'**
+  String get weightLimitHint;
+
+  /// No description provided for @weightOf.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} → {total} g'**
+  String weightOf(String value, String total);
+
+  /// No description provided for @weightGrams.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} g'**
+  String weightGrams(String value);
+
+  /// No description provided for @gramsUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'g'**
+  String get gramsUnit;
+
+  /// No description provided for @weightSettling.
+  ///
+  /// In en, this message translates to:
+  /// **'Settling'**
+  String get weightSettling;
+
+  /// No description provided for @weightStoppedByTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped by time, {value} of {total} g'**
+  String weightStoppedByTime(String value, String total);
+
+  /// No description provided for @weightScaleLost.
+  ///
+  /// In en, this message translates to:
+  /// **'Scale lost — finishing on time'**
+  String get weightScaleLost;
+
+  /// No description provided for @weightNotConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'No scale'**
+  String get weightNotConnected;
+
+  /// No description provided for @weightConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect a scale to weigh and to stop the pour by weight.'**
+  String get weightConnect;
+
+  /// No description provided for @weightJournal.
+  ///
+  /// In en, this message translates to:
+  /// **'Pour log'**
+  String get weightJournal;
+
+  /// No description provided for @weightJournalEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No pours yet'**
+  String get weightJournalEmpty;
+
+  /// No description provided for @weightJournalClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear log'**
+  String get weightJournalClear;
+
+  /// No description provided for @weightMissOver.
+  ///
+  /// In en, this message translates to:
+  /// **'+{value} g'**
+  String weightMissOver(String value);
+
+  /// No description provided for @weightMissUnder.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} g'**
+  String weightMissUnder(String value);
+
+  /// No description provided for @reasonWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'by weight'**
+  String get reasonWeight;
+
+  /// No description provided for @reasonTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'by time'**
+  String get reasonTimeout;
+
+  /// No description provided for @reasonManual.
+  ///
+  /// In en, this message translates to:
+  /// **'by hand'**
+  String get reasonManual;
+
+  /// No description provided for @reasonLinkLost.
+  ///
+  /// In en, this message translates to:
+  /// **'link lost'**
+  String get reasonLinkLost;
+
+  /// No description provided for @scaleBattery.
+  ///
+  /// In en, this message translates to:
+  /// **'{value}%'**
+  String scaleBattery(int value);
+
+  /// No description provided for @scaleAsleep.
+  ///
+  /// In en, this message translates to:
+  /// **'asleep'**
+  String get scaleAsleep;
+
+  /// No description provided for @journalAccuracy.
+  ///
+  /// In en, this message translates to:
+  /// **'Accuracy'**
+  String get journalAccuracy;
+
+  /// No description provided for @journalPours.
+  ///
+  /// In en, this message translates to:
+  /// **'Pours'**
+  String get journalPours;
+
+  /// No description provided for @journalCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Pours'**
+  String get journalCount;
+
+  /// No description provided for @journalAvgMiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Avg miss'**
+  String get journalAvgMiss;
+
+  /// No description provided for @journalAvgTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Avg time'**
+  String get journalAvgTime;
+
+  /// No description provided for @descYield.
+  ///
+  /// In en, this message translates to:
+  /// **'How much should end up in the cup. The pour stops here.'**
+  String get descYield;
+
+  /// No description provided for @journalTiming.
+  ///
+  /// In en, this message translates to:
+  /// **'Shot time'**
+  String get journalTiming;
+
+  /// No description provided for @journalTimingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'At the same dose and target, steady time means a steady grind.'**
+  String get journalTimingHint;
+
+  /// No description provided for @weightOnScale.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} g on the scale'**
+  String weightOnScale(String value);
+
+  /// No description provided for @journalStats.
+  ///
+  /// In en, this message translates to:
+  /// **'Statistics'**
+  String get journalStats;
+
+  /// No description provided for @shotNoCurve.
+  ///
+  /// In en, this message translates to:
+  /// **'No graph for this pour — there was no scale connected.'**
+  String get shotNoCurve;
+
+  /// No description provided for @shotParams.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get shotParams;
+
+  /// No description provided for @shotYield.
+  ///
+  /// In en, this message translates to:
+  /// **'In the cup'**
+  String get shotYield;
+
+  /// No description provided for @shotRatio.
+  ///
+  /// In en, this message translates to:
+  /// **'Ratio'**
+  String get shotRatio;
+
+  /// No description provided for @shotTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get shotTime;
+
+  /// No description provided for @shotEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Ended'**
+  String get shotEnded;
+
+  /// No description provided for @chartWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight'**
+  String get chartWeight;
+
+  /// No description provided for @chartFlow.
+  ///
+  /// In en, this message translates to:
+  /// **'Flow'**
+  String get chartFlow;
+
+  /// No description provided for @chartTemperature.
+  ///
+  /// In en, this message translates to:
+  /// **'Temperature'**
+  String get chartTemperature;
+
+  /// No description provided for @today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get today;
+
+  /// No description provided for @timerReadyIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready in'**
+  String get timerReadyIn;
+
+  /// No description provided for @timerReadyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The machine starts early so the coffee is ready right on time.'**
+  String get timerReadyHint;
+
+  /// No description provided for @timerStartAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Starts at {time}'**
+  String timerStartAt(String time);
+
+  /// No description provided for @timerByTime.
+  ///
+  /// In en, this message translates to:
+  /// **'At a set time'**
+  String get timerByTime;
+
+  /// No description provided for @timerSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule'**
+  String get timerSchedule;
+
+  /// No description provided for @adviceAfterShot.
+  ///
+  /// In en, this message translates to:
+  /// **'Advice after each shot'**
+  String get adviceAfterShot;
+
+  /// No description provided for @brewAdvice.
+  ///
+  /// In en, this message translates to:
+  /// **'Brewing tips'**
+  String get brewAdvice;
+
+  /// No description provided for @adviceHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'How did it turn out?'**
+  String get adviceHeadline;
+
+  /// No description provided for @adviceBannerBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Tune the recipe to taste'**
+  String get adviceBannerBody;
+
+  /// No description provided for @adviceTune.
+  ///
+  /// In en, this message translates to:
+  /// **'Tune'**
+  String get adviceTune;
+
+  /// No description provided for @adviceTasteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Taste'**
+  String get adviceTasteTitle;
+
+  /// No description provided for @adviceBodyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Body'**
+  String get adviceBodyTitle;
+
+  /// No description provided for @tasteSour.
+  ///
+  /// In en, this message translates to:
+  /// **'Sour'**
+  String get tasteSour;
+
+  /// No description provided for @tasteSalty.
+  ///
+  /// In en, this message translates to:
+  /// **'Salty'**
+  String get tasteSalty;
+
+  /// No description provided for @tasteEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Watery'**
+  String get tasteEmpty;
+
+  /// No description provided for @tasteSweet.
+  ///
+  /// In en, this message translates to:
+  /// **'Sweet'**
+  String get tasteSweet;
+
+  /// No description provided for @tasteBitter.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitter'**
+  String get tasteBitter;
+
+  /// No description provided for @bodyThin.
+  ///
+  /// In en, this message translates to:
+  /// **'Thin'**
+  String get bodyThin;
+
+  /// No description provided for @bodyFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Full'**
+  String get bodyFull;
+
+  /// No description provided for @adviceWhySour.
+  ///
+  /// In en, this message translates to:
+  /// **'Sour — under-extracted: the water ran through too fast.'**
+  String get adviceWhySour;
+
+  /// No description provided for @adviceWhySalty.
+  ///
+  /// In en, this message translates to:
+  /// **'Salty — extraction cut off too early.'**
+  String get adviceWhySalty;
+
+  /// No description provided for @adviceWhyBitter.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitter — over-extracted: the water ran too long.'**
+  String get adviceWhyBitter;
+
+  /// No description provided for @adviceWhyEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Watery — weak: too little coffee for the water.'**
+  String get adviceWhyEmpty;
+
+  /// No description provided for @adviceWhySweet.
+  ///
+  /// In en, this message translates to:
+  /// **'Sweet and balanced — right on point.'**
+  String get adviceWhySweet;
+
+  /// No description provided for @adviceWhyThin.
+  ///
+  /// In en, this message translates to:
+  /// **'Thin — lacks density.'**
+  String get adviceWhyThin;
+
+  /// No description provided for @adviceControls.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do'**
+  String get adviceControls;
+
+  /// No description provided for @advicePick.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick taste and body — I\'ll suggest what to adjust.'**
+  String get advicePick;
+
+  /// No description provided for @adviceNoChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to change.'**
+  String get adviceNoChange;
+
+  /// No description provided for @adviceRatioHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tighten the ratio in the scale dialog.'**
+  String get adviceRatioHint;
+
+  /// No description provided for @tasteAstringent.
+  ///
+  /// In en, this message translates to:
+  /// **'Astringent'**
+  String get tasteAstringent;
+
+  /// No description provided for @adviceWhyAstringent.
+  ///
+  /// In en, this message translates to:
+  /// **'Astringent — over-extracted, a parched puck.'**
+  String get adviceWhyAstringent;
+
+  /// No description provided for @fixGrindFiner.
+  ///
+  /// In en, this message translates to:
+  /// **'Grind finer'**
+  String get fixGrindFiner;
+
+  /// No description provided for @fixGrindCoarser.
+  ///
+  /// In en, this message translates to:
+  /// **'Grind coarser'**
+  String get fixGrindCoarser;
+
+  /// No description provided for @fixDoseMore.
+  ///
+  /// In en, this message translates to:
+  /// **'More coffee'**
+  String get fixDoseMore;
+
+  /// No description provided for @fixRatioShorter.
+  ///
+  /// In en, this message translates to:
+  /// **'Shorter yield'**
+  String get fixRatioShorter;
+
+  /// No description provided for @fixGrindFinerWhy.
+  ///
+  /// In en, this message translates to:
+  /// **'The main lever: finer grind slows the water — more extraction.'**
+  String get fixGrindFinerWhy;
+
+  /// No description provided for @fixGrindCoarserWhy.
+  ///
+  /// In en, this message translates to:
+  /// **'The main lever: coarser grind speeds the water — less extraction.'**
+  String get fixGrindCoarserWhy;
+
+  /// No description provided for @fixDoseMoreWhy.
+  ///
+  /// In en, this message translates to:
+  /// **'Add more grounds — a denser, stronger cup.'**
+  String get fixDoseMoreWhy;
+
+  /// No description provided for @fixRatioShorterWhy.
+  ///
+  /// In en, this message translates to:
+  /// **'Lower the scale target — less water, a denser cup.'**
+  String get fixRatioShorterWhy;
+
+  /// No description provided for @fixTempUpWhy.
+  ///
+  /// In en, this message translates to:
+  /// **'If the grind is dialed in — raise the temperature a degree or two.'**
+  String get fixTempUpWhy;
+
+  /// No description provided for @fixTempDownWhy.
+  ///
+  /// In en, this message translates to:
+  /// **'If the grind is dialed in — lower the temperature a degree or two.'**
+  String get fixTempDownWhy;
+
+  /// No description provided for @adviceLastResort.
+  ///
+  /// In en, this message translates to:
+  /// **'Last resort'**
+  String get adviceLastResort;
+
+  /// No description provided for @adviceScaleOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect a scale to control the yield.'**
+  String get adviceScaleOff;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

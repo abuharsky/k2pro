@@ -75,7 +75,12 @@ const Duration kMaxTryTimeout = Duration(seconds: 4);
 /// Лесенка: 0.6 с, 1.2 с, 2.4 с… Одиночная попытка ждёт весь срок — повторять
 /// всё равно некому, и обрывать её раньше значит просто потерять ответ.
 Duration retryTimeout(int attempt, int tries, [Duration cap = kMaxTryTimeout]) {
-  if (tries <= 1) return cap;
+  // Лесенка одна на все запросы, сколько бы попыток ни было отпущено. Раньше
+  // единственной попытке доставался сразу потолок — «повторять всё равно
+  // нечем, так подождём подольше». На молчащей машине это стоило четырёх
+  // секунд на кадр: в живой трассе форс-запись уставок перед пуском съедала
+  // восемь секунд, и кадр пуска уходил на двенадцатой. Ждать дольше первого
+  // шага бессмысленно: штатный ответ приходит за 89 мс.
   final us = kFirstTryTimeout.inMicroseconds << (attempt - 1);
   return Duration(microseconds: us.clamp(0, cap.inMicroseconds));
 }
@@ -94,9 +99,7 @@ const Duration kReconnectMaxDelay = Duration(seconds: 30);
 /// Сколько ждать перед [attempt]-й попыткой переподключения (нумерация с нуля).
 Duration reconnectDelay(int attempt) {
   final us = kReconnectFirstDelay.inMicroseconds << attempt;
-  return Duration(
-    microseconds: us.clamp(0, kReconnectMaxDelay.inMicroseconds),
-  );
+  return Duration(microseconds: us.clamp(0, kReconnectMaxDelay.inMicroseconds));
 }
 
 const int kStartTx = 0x7F; // телефон -> машина
@@ -213,13 +216,19 @@ enum MachineError {
   batteryOverheating(2),
   heaterShortCircuit(3),
   lowBatteryHot(4),
-  lowBattery(5);
+  lowBattery(5),
+
+  /// Машина сообщила код, которого нет в этом списке. Раньше такой код
+  /// приравнивался к «ошибки нет» и молча пропадал — а машина в этот момент
+  /// пищит и отказывается работать. Показываем как есть; само число едет
+  /// рядом в [DeviceStatus.errorCode].
+  unknown(-1);
 
   const MachineError(this.code);
   final int code;
 
   static MachineError fromCode(int c) =>
-      values.firstWhere((e) => e.code == c, orElse: () => none);
+      values.firstWhere((e) => e.code == c, orElse: () => unknown);
 }
 
 enum FragStatus { none, first, middle, last }
@@ -456,6 +465,7 @@ class DeviceStatus {
     required this.temperatureC,
     required this.state,
     required this.error,
+    required this.errorCode,
   });
 
   /// Сырое число из пакета. Процентами оно только выглядит: за 45 тысяч
@@ -467,6 +477,10 @@ class DeviceStatus {
   final int temperatureC;
   final MachineState state;
   final MachineError error;
+
+  /// Сырой байт ошибки. Совпадает с [MachineError.code] у всех известных
+  /// кодов и остаётся единственным, что мы знаем про незнакомый.
+  final int errorCode;
 
   /// Деление батареи 0..4 — то единственное, что машина про заряд знает.
   /// Ровно столько же аппаратных точек светится на её корпусе.
@@ -508,6 +522,7 @@ DeviceStatus parseDeviceStatus(Uint8List p) {
     temperatureC: p[3],
     state: MachineState.fromCode(p[4]),
     error: MachineError.fromCode(p[5]),
+    errorCode: p[5],
   );
 }
 

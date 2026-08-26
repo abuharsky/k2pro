@@ -42,8 +42,7 @@ enum CycleState {
   bool get isPending => this == starting || this == stopping;
 
   /// Цикл идёт — машина занята или вот-вот будет.
-  bool get isActive =>
-      this == starting || this == running || this == stopping;
+  bool get isActive => this == starting || this == running || this == stopping;
 }
 
 /// Что случилось.

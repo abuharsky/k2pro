@@ -68,13 +68,7 @@ class RecipeEditor extends ChangeNotifier {
     if (standstillSeconds != null) _still = standstillSeconds;
     if (pressure != null) _pressure = pressure;
     Trace.instance.ui(
-      'правка ${[
-        if (temperatureC != null) 't=$temperatureC',
-        if (extractionSeconds != null) 'ext=$extractionSeconds',
-        if (preInfusionSeconds != null) 'pre=$preInfusionSeconds',
-        if (standstillSeconds != null) 'still=$standstillSeconds',
-        if (pressure != null) 'p=$pressure',
-      ].join(' ')}',
+      'правка ${[if (temperatureC != null) 't=$temperatureC', if (extractionSeconds != null) 'ext=$extractionSeconds', if (preInfusionSeconds != null) 'pre=$preInfusionSeconds', if (standstillSeconds != null) 'still=$standstillSeconds', if (pressure != null) 'p=$pressure'].join(' ')}',
     );
     notifyListeners();
 
@@ -91,20 +85,43 @@ class RecipeEditor extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Записать уставки в машину заново, совпадают они с известными или нет.
+  /// Снять накопленную правку и отдать её тому, кто будет писать в машину.
   ///
-  /// Зовётся перед пуском. Пока машина не ответила ни разу, «известное» — это
-  /// кэш прошлого сеанса, и совпадать с содержимым машины он не обязан.
-  /// Дешевле дослать два кадра, чем налить не столько, сколько на экране.
-  Future<void> push() async {
-    Trace.instance.ui('форс-запись уставок перед пуском');
+  /// Зовётся перед пуском. Ничего не отправляет и ничего не ждёт — только
+  /// закрывает дебаунс и возвращает то, что должно оказаться в машине. Раньше
+  /// этот же метод сам ходил в машину и пуск ждал его: на молчащей машине
+  /// ожидание стоило восьми секунд, и всё это время кнопка не отзывалась.
+  /// Теперь порядок «уставки, потом пуск» держит [K2Device.start], а ожидание
+  /// на кнопке заводится первым же действием.
+  Recipe commit() {
+    Trace.instance.ui('уставки сняты для записи перед пуском');
     _push?.cancel();
     _push = null;
     final r = active.clampTo(device.workParams, device.tempLimits);
     prefs.recipe = r;
-    await device.setRecipe(r, force: true);
     _clear();
     notifyListeners();
+    return r;
+  }
+
+  /// Переключить режим и подтянуть его набор.
+  ///
+  /// Каждый режим помнит свои уставки: под эспрессо — паузы и предсмачивание,
+  /// под пролив американо — просто пролив. Порядок такой: сперва снимаем текущее
+  /// в набор старого режима (заодно закрываем дебаунс), потом делаем активным
+  /// новый и возвращаем в машину его набор. Машина держит один рецепт, поэтому
+  /// «память режима» — это восстановление снимка при переключении.
+  Future<void> selectMode(WorkMode mode) async {
+    if (mode == prefs.runMode) return;
+    // commit() сохраняет активное в набор ещё старого режима и гасит таймер
+    // записи — иначе отложенная правка старого режима догнала бы уже новый.
+    commit();
+    prefs.runMode = mode;
+    final r = prefs.recipeFor(mode);
+    notifyListeners();
+    // force: набор нового режима может совпасть по числам с тем, что сейчас в
+    // машине лишь частично; пишем целиком, чтобы железо точно встало на него.
+    if (device.isConnected) await device.setRecipe(r, force: true);
   }
 
   void _clear() {

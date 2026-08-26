@@ -3,13 +3,35 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'protocol.dart';
+import 'scale/mock_scale_transport.dart' show kMockScaleId;
 import 'transport.dart';
+
+/// Идентификатор машины-симулятора. Демо-режим подключается прямо к нему,
+/// минуя поиск: искать в эфире нечего.
+const String kMockMachineId = 'mock-k2pro';
 
 /// Симулятор машины: позволяет гонять приложение на Mac без железа.
 ///
 /// Отвечает настоящими кадрами протокола, поэтому проверяет и кодек, и UI.
 class MockTransport implements K2Transport {
-  MockTransport();
+  MockTransport({DateTime Function()? now, this.faultCycle = const []})
+    : _now = now ?? DateTime.now;
+
+  /// Ошибки, которые симулятор разыгрывает по кругу: одна на прогон.
+  ///
+  /// Пусто — машина всегда исправна; так собраны тесты, которым ошибки только
+  /// мешали бы. Демо задаёт чередование, где каждый второй прогон ломается:
+  /// иначе половина того, что приложение умеет — сорванный цикл, запертый пуск,
+  /// подсказка «добавьте воду», — на симуляторе никогда не показывается.
+  ///
+  /// Порядок именно постоянный, а не случайный: демо надо уметь *показывать*,
+  /// а для этого знать, что случится на следующем пуске.
+  final List<MachineError> faultCycle;
+
+  /// Часы симулятора. Отдельным аргументом, чтобы сквозной тест мог гонять
+  /// пролив быстрее реального времени: без этого весь контур останова
+  /// проверялся бы только на живом кофе.
+  final DateTime Function() _now;
 
   final _scanCtl = StreamController<List<DiscoveredDevice>>.broadcast();
   final _linkCtl = StreamController<LinkState>.broadcast();
@@ -30,15 +52,46 @@ class MockTransport implements K2Transport {
   int _still = 5;
   int _ext = 70;
   int _battery = 78;
+
+  /// Сколько тиков прошло с прошлой убыли заряда.
+  ///
+  /// Считать нужно именно тики, а не сажать заряд каждый: тик — полсекунды, и
+  /// по единице за тик симулятор садил батарею с 78 до нуля за минуту работы.
+  /// Ниже 25 это уже деление 1, то есть предупреждение «заряда мало, точно
+  /// пускать?» — на живом показе оно вылезало на втором же цикле.
+  int _sinceBattery = 0;
+
   MachineState _state = MachineState.standby;
-  /// Ошибка, которую машина положит в следующий кадр телеметрии. Живая
-  /// сбрасывает её сама через пакет-другой — здесь это делает тест.
+
+  /// Когда температура впервые дошла до уставки. От неё симулятор считает
+  /// времена пролива — так же, как это делает `BrewPhaseEstimator` в
+  /// приложении.
+  DateTime? _heatReachedAt;
+
+  /// Ошибка, которую машина положит в следующий кадр телеметрии.
+  ///
+  /// Ставится снаружи (тестом) или самим симулятором из [faultCycle]. Живая
+  /// машина повторяет код пакет-другой и гасит его сама — [_faultLeft] делает
+  /// то же самое.
   MachineError fault = MachineError.none;
+
+  /// Сколько кадров ещё повторять [fault]. Ноль — гасим.
+  int _faultLeft = 0;
+
+  /// Сколько прогонов симулятор уже отработал. По нему выбирается ошибка из
+  /// [faultCycle].
+  int _runs = 0;
+
+  /// Что сорвёт текущий прогон, когда он дойдёт до середины экстракции.
+  MachineError _pendingFault = MachineError.none;
   Appointment _appointment = const Appointment.disabled();
 
   /// Всё, что приложение записало. По этому списку видно, сколько кадров ушло
   /// на самом деле, — дёрнуть метод и отправить кадр это разные вещи.
   final List<Uint8List> sent = [];
+
+  /// Сколько раз приложение поднимало линию. По нему видно пересборку.
+  int connects = 0;
   int _todayCups = 2;
   DateTime? _phaseStart;
 
@@ -67,11 +120,19 @@ class MockTransport implements K2Transport {
     _scanCtl.add(const []);
     _scanTimer?.cancel();
     _scanTimer = Timer(const Duration(milliseconds: 700), () {
+      // Симулятор находит и машину, и весы: экран подключения должен уметь
+      // показать оба вида, а без второй строки это никак не проверить.
       _scanCtl.add(const [
         DiscoveredDevice(
-          id: 'mock-k2pro',
+          id: kMockMachineId,
           advertisedName: '${kNamePrefix}_SIM',
           rssi: -47,
+        ),
+        DiscoveredDevice(
+          id: kMockScaleId,
+          advertisedName: 'DOT_SIM',
+          rssi: -61,
+          kind: DeviceKind.scale,
         ),
       ]);
     });
@@ -82,6 +143,7 @@ class MockTransport implements K2Transport {
 
   @override
   Future<void> connect(String deviceId) async {
+    connects++;
     _setLink(LinkState.connecting);
     await Future<void>.delayed(const Duration(milliseconds: 600));
     _setLink(LinkState.connected);
@@ -112,6 +174,13 @@ class MockTransport implements K2Transport {
   /// вставало колом: опрос уходил в пустоту, держа линию по четыре секунды за
   /// запрос, а нажатая кнопка ждала своей очереди за ним.
   bool mute = false;
+
+  /// Сколько ближайших кадров пуска машина проглотит молча.
+  ///
+  /// Живой PCM03SMAX так и делает: кадр 0x02 уходит, ответа нет, состояние не
+  /// меняется — а точно такой же следующий он подтверждает за 89 мс. Пока пуск
+  /// шёл без повторов, такое нажатие пропадало совсем.
+  int swallowStarts = 0;
 
   @override
   Future<void> write(Uint8List frame) async {
@@ -147,6 +216,10 @@ class MockTransport implements K2Transport {
         _target = 92;
         _reply(cmd, [_flow, _pre, _still, celsiusToWire(_target), _ext]);
       case Cmd.setWorkState:
+        if (payload[1] == 1 && swallowStarts > 0) {
+          swallowStarts--;
+          return;
+        }
         // Байты идут [режим, пуск] — так же, как их читает живая машина.
         _onWorkState(payload[1] == 1, payload[0]);
         _reply(cmd, [payload[0], payload[1]]);
@@ -173,9 +246,17 @@ class MockTransport implements K2Transport {
     if (!start) {
       _state = MachineState.standby;
       _phaseStart = null;
+      _heatReachedAt = null;
       return;
     }
-    _phaseStart = DateTime.now();
+    _phaseStart = _now();
+    _heatReachedAt = null;
+    // Ошибку прогона выбираем на пуске, а не в момент срыва: так она известна
+    // заранее и её видно в трассе с самого начала цикла.
+    _pendingFault = faultCycle.isEmpty
+        ? MachineError.none
+        : faultCycle[_runs % faultCycle.length];
+    _runs++;
     _state = switch (workModeCode) {
       0 => MachineState.heating,
       2 => MachineState.brewing,
@@ -230,15 +311,35 @@ class MockTransport implements K2Transport {
     }
   }
 
+  /// Сколько воды машина льёт прямо сейчас, г/с. Ноль — не льёт.
+  ///
+  /// Нужно симулятору весов: настоящие весы узнают о проливе по воде, а не по
+  /// кадру телеметрии, и весь контур останова держится именно на этом.
+  /// Смачивание идёт тонкой струёй, выстаивание — сухая пауза, экстракция —
+  /// рабочий поток.
+  double get pourFlow {
+    if (!_state.isBusy || _state == MachineState.heating) return 0;
+    final since =
+        _heatReachedAt ?? (_state == MachineState.brewing ? _phaseStart : null);
+    if (since == null) return 0;
+    final t = _now().difference(since).inMilliseconds / 1000;
+    if (t < _pre) return 0.8;
+    if (t < _pre + _still) return 0;
+    if (t < _pre + _still + _ext) return 2.0;
+    return 0;
+  }
+
   void _step() {
     final busy = _state.isBusy;
+    if (busy && _breakDown()) return;
     if (busy) {
       if (_state != MachineState.brewing && _temp < _target) {
         _temp = min(_target.toDouble(), _temp + 2.4);
       } else {
-        final started = _phaseStart ?? DateTime.now();
+        _heatReachedAt ??= _now();
+        final started = _phaseStart ?? _now();
         final total = _pre + _still + _ext;
-        if (DateTime.now().difference(started).inSeconds > total) {
+        if (_now().difference(started).inSeconds > total) {
           _state = switch (_state) {
             MachineState.heating => MachineState.heatDone,
             MachineState.brewing => MachineState.brewDone,
@@ -247,10 +348,42 @@ class MockTransport implements K2Transport {
           _todayCups++;
         }
       }
-      if (_battery > 0) _battery = max(0, _battery - 1);
+      if (++_sinceBattery >= 20 && _battery > 0) {
+        _sinceBattery = 0;
+        _battery--;
+      }
     } else if (_temp > 24) {
       _temp -= 0.6;
     }
+    _sendState();
+  }
+
+  /// Сорвать прогон, если его очередь ломаться и он дошёл до середины
+  /// экстракции.
+  ///
+  /// Ошибка на пуске показала бы только баннер; интересно другое — как
+  /// обрывается уже идущий пролив: рушится таймлайн, встаёт вес, запирается
+  /// пуск до «Проверить».
+  bool _breakDown() {
+    if (_pendingFault == MachineError.none) return false;
+    final since =
+        _heatReachedAt ?? (_state == MachineState.brewing ? _phaseStart : null);
+    if (since == null) return false;
+    final t = _now().difference(since).inMilliseconds / 1000;
+    if (t < _pre + _still + _ext * 0.4) return false;
+
+    fault = _pendingFault;
+    _faultLeft = 2;
+    _pendingFault = MachineError.none;
+    // Машина встаёт сама — она не доливает после аварии.
+    _state = MachineState.standby;
+    _phaseStart = null;
+    _heatReachedAt = null;
+    _sendState();
+    return true;
+  }
+
+  void _sendState() {
     _reply(Cmd.deviceState, [
       0,
       _battery & 0x7F,
@@ -259,6 +392,9 @@ class MockTransport implements K2Transport {
       _state.code,
       fault.code,
     ]);
+    // Код держится пакет-другой и гаснет — как на живой машине. В приложении
+    // он при этом остаётся в `lastFault`, пока человек не нажмёт «Проверить».
+    if (_faultLeft > 0 && --_faultLeft == 0) fault = MachineError.none;
   }
 
   @override

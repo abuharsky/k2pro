@@ -1,0 +1,42 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSBluetoothAlwaysUsageDescription": {
+      "comment": "Системный запрос доступа к Bluetooth.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "K2 Pro connects to your coffee machine over Bluetooth."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приложение подключается к кофемашине K2 Pro по Bluetooth."
+          }
+        }
+      }
+    },
+    "NSBluetoothPeripheralUsageDescription": {
+      "comment": "Системный запрос доступа к Bluetooth.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "K2 Pro connects to your coffee machine over Bluetooth."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приложение подключается к кофемашине K2 Pro по Bluetooth."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

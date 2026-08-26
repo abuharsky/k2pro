@@ -45,6 +45,7 @@ IOS_SIZES = {
 }
 
 MACOS_SIZES = [16, 32, 64, 128, 256, 512, 1024]
+MACOS_CONTENT = 824 / 1024  # сетка Apple: рисунок занимает не весь холст
 WATCH_FILENAME = "AppIcon-1024.png"
 
 # gamma < 1 поднимает средние тона, lift отрывает чёрное от нуля.
@@ -84,7 +85,7 @@ def screen(a: Image.Image, b: Image.Image) -> Image.Image:
 
 
 def squircle_mask(size: int, exponent: float = 5.0, supersample: int = 4) -> Image.Image:
-    """Маска-скруглённый квадрат в стиле Apple (суперэллипс)."""
+    """Маска-суперэллипс: приближение непрерывного скругления Apple."""
     s = size * supersample
     mask = Image.new("L", (s, s), 0)
     draw = ImageDraw.Draw(mask)
@@ -168,9 +169,11 @@ def main() -> None:
         + "\n"
     )
 
-    # macOS — скруглённый квадрат с полями по сетке Apple (824 из 1024).
+    # macOS — та же картинка, что и на iPhone, но маску система здесь не
+    # рисует (в отличие от iOS), поэтому скругляем сами. И вписываем в сетку
+    # Apple (824 из 1024), иначе иконка крупнее соседей по доку.
     for size in MACOS_SIZES:
-        content = max(1, round(size * 824 / 1024))
+        content = max(1, round(size * MACOS_CONTENT))
         art = square(icon, content).convert("RGBA")
         art.putalpha(squircle_mask(content))
         canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))

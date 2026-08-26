@@ -38,9 +38,13 @@ class BarCta {
 /// таймлайна: там у каждого числа есть имя и свой лист. Внизу остаётся ровно
 /// одно действие — то, ради которого экран и открыли.
 class BottomBar extends StatelessWidget {
-  const BottomBar({super.key, required this.cta});
+  const BottomBar({super.key, required this.cta, this.leading});
 
   final BarCta cta;
+
+  /// Кнопка слева от пуска — весы. Той же высоты и того же скругления: это
+  /// один ряд управления, а не кнопка, приткнутая рядом.
+  final Widget? leading;
 
   /// Высота ряда вместе с полями: 12 сверху, 52 сама, 14 снизу.
   static const double cell = 52;
@@ -52,16 +56,37 @@ class BottomBar extends StatelessWidget {
   /// доступному месту.
   static const double buttonWidth = 300;
 
+  /// Ширина кнопки слева и зазор до пуска. Зазор заметно больше, чем между
+  /// элементами внутри кнопок: это две разные команды, и слипаться им нельзя —
+  /// пуск нащупывают не глядя.
+  static const double leadingWidth = 76;
+  static const double gap = 18;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
-    child: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: buttonWidth),
-        child: _Cta(cta: cta),
+  Widget build(BuildContext context) {
+    final side = leading;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: side == null
+                ? buttonWidth
+                : buttonWidth + leadingWidth + gap,
+          ),
+          child: Row(
+            children: [
+              if (side != null) ...[
+                SizedBox(width: leadingWidth, height: cell, child: side),
+                const SizedBox(width: gap),
+              ],
+              Expanded(child: _Cta(cta: cta)),
+            ],
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// Главная кнопка: заливка режима в покое, красная в работе, зелёная в конце.
@@ -195,18 +220,6 @@ class _CtaState extends State<_Cta> with SingleTickerProviderStateMixin {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Блик по верхней кромке: без него залитая красным кнопка
-              // выглядит плоской наклейкой.
-              if (red && enabled)
-                const Positioned(
-                  left: 1,
-                  right: 1,
-                  top: 1,
-                  height: 1,
-                  child: IgnorePointer(
-                    child: ColoredBox(color: Color(0x2EFFFFFF)),
-                  ),
-                ),
               if (c.slideToConfirm && !c.busy)
                 Positioned(
                   left: 52,

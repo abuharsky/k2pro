@@ -3,21 +3,20 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
-import 'protocol.dart';
+import 'profiles.dart';
 import 'trace.dart';
 import 'transport.dart';
 
-/// Реальный BLE поверх flutter_blue_plus.
-class BleTransport implements K2Transport {
-  BleTransport();
+/// Поиск в эфире — один на всё приложение.
+///
+/// Радиоканал один, и два независимых скана держать нельзя: второй просто
+/// гасит первый. Поэтому сканер отделён от транспорта и общий у машины и у
+/// весов, а находки помечаются видом и приезжают всем сразу.
+class BleScanner {
+  BleScanner();
 
-  final _scanCtl = StreamController<List<DiscoveredDevice>>.broadcast();
-  final _linkCtl = StreamController<LinkState>.broadcast();
-  final _notifyCtl = StreamController<Uint8List>.broadcast();
-
-  StreamSubscription<List<ScanResult>>? _scanSub;
-  StreamSubscription<BluetoothConnectionState>? _connSub;
-  StreamSubscription<List<int>>? _valueSub;
+  final _ctl = StreamController<List<DiscoveredDevice>>.broadcast();
+  StreamSubscription<List<ScanResult>>? _sub;
 
   /// На macOS/iOS remoteId — это UUID, выданный CoreBluetooth.
   /// Пересобрать из строки объект можно, но надёжнее держать тот,
@@ -27,30 +26,12 @@ class BleTransport implements K2Transport {
   /// Чтобы отладочный лог не повторял одно и то же объявление раз в секунду.
   final Set<String> _logged = {};
 
-  BluetoothDevice? _device;
-  BluetoothCharacteristic? _writeChar;
-  LinkState _link = LinkState.disconnected;
+  Stream<List<DiscoveredDevice>> get results => _ctl.stream;
 
-  @override
-  Stream<List<DiscoveredDevice>> get scanResults => _scanCtl.stream;
+  BluetoothDevice deviceFor(String id) =>
+      _seen[id] ?? BluetoothDevice.fromId(id);
 
-  @override
-  Stream<LinkState> get linkState => _linkCtl.stream;
-
-  @override
-  Stream<Uint8List> get notifications => _notifyCtl.stream;
-
-  @override
-  LinkState get currentLinkState => _link;
-
-  void _setLink(LinkState s) {
-    if (_link == s) return;
-    _link = s;
-    _linkCtl.add(s);
-  }
-
-  @override
-  Future<void> startScan({
+  Future<void> start({
     Duration timeout = const Duration(seconds: 15),
     bool showAll = false,
   }) async {
@@ -76,20 +57,20 @@ class BleTransport implements K2Transport {
     }
 
     _logged.clear();
-    await _scanSub?.cancel();
-    _scanSub = FlutterBluePlus.scanResults.listen((results) {
+    await _sub?.cancel();
+    _sub = FlutterBluePlus.scanResults.listen((results) {
       final list = <DiscoveredDevice>[];
       for (final r in results) {
         final name = _advName(r);
         _seen[r.device.remoteId.str] = r.device;
-        final known = kNamePrefixes.any(name.startsWith);
-        if (!known && !showAll) continue;
+        final kind = kindOfName(name);
+        if (kind == DeviceKind.other && !showAll) continue;
         list.add(
           DiscoveredDevice(
             id: r.device.remoteId.str,
             advertisedName: name.isEmpty ? '(без имени)' : name,
             rssi: r.rssi,
-            known: known,
+            kind: kind,
           ),
         );
       }
@@ -107,17 +88,81 @@ class BleTransport implements K2Transport {
           );
         }
       }
-      _scanCtl.add(list);
+      _ctl.add(list);
     });
 
-    // Фильтр по имени делаем сами: машина не рекламирует сервис FFF0.
+    // Фильтр по имени делаем сами: ни машина, ни весы не рекламируют FFF0.
     await FlutterBluePlus.startScan(timeout: timeout);
   }
 
-  /// Выложить в трассу всё дерево GATT — не только FFF0.
+  Future<void> stop() async {
+    await FlutterBluePlus.stopScan();
+    await _sub?.cancel();
+    _sub = null;
+  }
+
+  Future<void> dispose() async {
+    await _sub?.cancel();
+    await _ctl.close();
+  }
+
+  static String _advName(ScanResult r) {
+    final n = r.advertisementData.advName;
+    return n.isNotEmpty ? n : r.device.platformName;
+  }
+}
+
+/// Реальный BLE поверх flutter_blue_plus.
+///
+/// Один экземпляр — одно подключённое устройство. Машина и весы заводят по
+/// своему, с разными [BleProfile], но с общим [BleScanner].
+class BleTransport implements K2Transport {
+  BleTransport({required this.profile, required this.scanner});
+
+  final BleProfile profile;
+  final BleScanner scanner;
+
+  final _linkCtl = StreamController<LinkState>.broadcast();
+  final _notifyCtl = StreamController<Uint8List>.broadcast();
+
+  StreamSubscription<BluetoothConnectionState>? _connSub;
+  StreamSubscription<List<int>>? _valueSub;
+
+  BluetoothDevice? _device;
+  BluetoothCharacteristic? _writeChar;
+  LinkState _link = LinkState.disconnected;
+
+  @override
+  Stream<List<DiscoveredDevice>> get scanResults => scanner.results;
+
+  @override
+  Stream<LinkState> get linkState => _linkCtl.stream;
+
+  @override
+  Stream<Uint8List> get notifications => _notifyCtl.stream;
+
+  @override
+  LinkState get currentLinkState => _link;
+
+  void _setLink(LinkState s) {
+    if (_link == s) return;
+    _link = s;
+    _linkCtl.add(s);
+  }
+
+  @override
+  Future<void> startScan({
+    Duration timeout = const Duration(seconds: 15),
+    bool showAll = false,
+  }) => scanner.start(timeout: timeout, showAll: showAll);
+
+  @override
+  Future<void> stopScan() => scanner.stop();
+
+  /// Выложить в трассу всё дерево GATT — не только рабочий сервис.
   ///
-  /// Нужно затем, что за пределами рабочего сервиса машина может держать
-  /// стандартные атрибуты профиля: имя (0x2A00), модель, версию прошивки.
+  /// Нужно затем, что за его пределами устройство может держать стандартные
+  /// атрибуты профиля: имя (0x2A00), модель, версию прошивки.
   /// Свойства покажут, можно ли туда писать; значения — что там лежит.
   /// Читаем только 16-битные `0x2Axx`: это атрибуты самого профиля Bluetooth,
   /// они инертны. Ничего вендорского не трогаем.
@@ -144,7 +189,7 @@ class BleTransport implements K2Transport {
           }
         }
         Trace.instance.log(
-          'gatt ${s.uuid.str}/${c.uuid.str} [$flags]$value',
+          'gatt ${profile.kind.name} ${s.uuid.str}/${c.uuid.str} [$flags]$value',
         );
       }
     }
@@ -157,24 +202,14 @@ class BleTransport implements K2Transport {
     return text && v.isNotEmpty ? '"${String.fromCharCodes(v)}" ($hex)' : hex;
   }
 
-  static String _advName(ScanResult r) {
-    final n = r.advertisementData.advName;
-    return n.isNotEmpty ? n : r.device.platformName;
-  }
-
-  @override
-  Future<void> stopScan() async {
-    await FlutterBluePlus.stopScan();
-    await _scanSub?.cancel();
-    _scanSub = null;
-  }
-
   @override
   Future<void> connect(String deviceId) async {
-    await stopScan();
+    // Скан глушим только под машину: весы подключаются вторыми, и гасить ради
+    // них чужой поиск незачем — он и так уже кончился.
+    if (profile.kind == DeviceKind.machine) await stopScan();
     _setLink(LinkState.connecting);
 
-    final device = _seen[deviceId] ?? BluetoothDevice.fromId(deviceId);
+    final device = scanner.deviceFor(deviceId);
     _device = device;
 
     await _connSub?.cancel();
@@ -206,8 +241,8 @@ class BleTransport implements K2Transport {
     final services = await device.discoverServices();
     await _dumpGatt(services);
     final svc = services.firstWhere(
-      (s) => s.uuid.str128.toLowerCase() == kServiceUuid,
-      orElse: () => throw StateError('Сервис FFF0 не найден'),
+      (s) => s.uuid.str128.toLowerCase() == profile.serviceUuid,
+      orElse: () => throw StateError('Сервис ${profile.serviceUuid} не найден'),
     );
 
     BluetoothCharacteristic charFor(String uuid) =>
@@ -216,8 +251,8 @@ class BleTransport implements K2Transport {
           orElse: () => throw StateError('Характеристика $uuid не найдена'),
         );
 
-    final notifyChar = charFor(kNotifyUuid);
-    _writeChar = charFor(kWriteUuid);
+    final notifyChar = charFor(profile.notifyUuid);
+    _writeChar = charFor(profile.writeUuid);
 
     await _valueSub?.cancel();
     _valueSub = notifyChar.onValueReceived.listen((v) {
@@ -226,10 +261,13 @@ class BleTransport implements K2Transport {
     await notifyChar.setNotifyValue(true);
 
     // На iOS/macOS MTU не запрашивается вручную — вызов там не поддерживается.
-    try {
-      await device.requestMtu(kRequestMtu);
-    } catch (_) {
-      // не критично
+    final mtu = profile.requestMtu;
+    if (mtu != null) {
+      try {
+        await device.requestMtu(mtu);
+      } catch (_) {
+        // не критично
+      }
     }
 
     _setLink(LinkState.connected);
@@ -257,10 +295,8 @@ class BleTransport implements K2Transport {
 
   @override
   Future<void> dispose() async {
-    await _scanSub?.cancel();
     await _connSub?.cancel();
     await _valueSub?.cancel();
-    await _scanCtl.close();
     await _linkCtl.close();
     await _notifyCtl.close();
   }

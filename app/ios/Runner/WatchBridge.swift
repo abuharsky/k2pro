@@ -32,7 +32,9 @@ final class WatchBridge: NSObject {
       guard let self else { return result(nil) }
       switch call.method {
       case "push":
-        if let json = call.arguments as? String { self.push(json) }
+        if let a = call.arguments as? [String: Any], let json = a["s"] as? String {
+          self.push(json, wake: a["wake"] as? Bool ?? false)
+        }
         result(nil)
       default:
         result(FlutterMethodNotImplemented)
@@ -48,7 +50,7 @@ final class WatchBridge: NSObject {
 
   // MARK: - Телефон → часы
 
-  private func push(_ json: String) {
+  private func push(_ json: String, wake: Bool) {
     latest = json
     guard let s = session, s.activationState == .activated else { return }
 
@@ -57,12 +59,58 @@ final class WatchBridge: NSObject {
       s.sendMessage(["s": json], replyHandler: nil, errorHandler: nil)
     }
 
+    // Случилось что-то, ради чего часы стоит поднять.
+    if wake { self.wake(s, json) }
+
     // И на всякий случай оставляем последнее известное состояние там, откуда
     // его достанут после пробуждения.
     let now = Date()
     guard now.timeIntervalSince(lastContextAt) >= Self.contextInterval else { return }
     lastContextAt = now
     try? s.updateApplicationContext(["s": json])
+  }
+
+  /// Разбудить часы ради Smart Stack.
+  ///
+  /// Виджет не умеет спросить телефон сам: статус ему пишет приложение на
+  /// часах, а оно почти всегда спит. Разбудить его может только очередь — и
+  /// `transferCurrentComplicationUserInfo` делает это первым классом, ради
+  /// того и заведена. Плата — суточная квота (около полусотни), поэтому сюда
+  /// приходят не все снимки, а только смена смысла: решает об этом Flutter,
+  /// он один знает, что здесь важно.
+  ///
+  /// Очередь при этом бережём. Отменять всё подряд, как здесь было раньше,
+  /// оказалось ровно тем, что ломало Smart Stack: осмысленных событий за
+  /// пролив набегает несколько, и каждое выбрасывало доставку, которую система
+  /// уже несла на часы, — до них не доезжало ничего. Отменяем только заведомо
+  /// устаревшее и заведомо ещё не уехавшее, оставляя самую свежую передачу в
+  /// покое.
+  private func wake(_ s: WCSession, _ json: String) {
+    guard s.isPaired, s.isWatchAppInstalled else { return }
+    if s.remainingComplicationUserInfoTransfers > 0 {
+      // Первый класс: будит часы сразу, но суточная квота невелика. Отменённая
+      // передача возвращает квоту обратно, поэтому здесь чистка окупается —
+      // часы вне зоны не проедят её устаревшими снимками.
+      trim(s.outstandingUserInfoTransfers.filter { $0.isCurrentComplicationInfo })
+      s.transferCurrentComplicationUserInfo(["s": json])
+    } else {
+      // Квота на сегодня вышла — или, как на этой паре, комплики нет на
+      // циферблате и квоты не было вовсе. Обычная очередь квоты не ест и часы
+      // всё-таки поднимает, только не так резво.
+      trim(s.outstandingUserInfoTransfers.filter { !$0.isCurrentComplicationInfo })
+      s.transferUserInfo(["s": json])
+    }
+  }
+
+  /// Подрезать очередь до одной ожидающей передачи.
+  ///
+  /// Уехавшую (`isTransferring`) не трогаем никогда: это и есть то самое
+  /// пробуждение, ради которого всё затевалось. Самую свежую из ожидающих —
+  /// тоже: пока не подтвердилось, что новая встала в очередь, она наш
+  /// единственный запас.
+  private func trim(_ transfers: [WCSessionUserInfoTransfer]) {
+    let queued = transfers.filter { !$0.isTransferring }
+    for t in queued.dropLast() { t.cancel() }
   }
 
   // MARK: - Часы → телефон

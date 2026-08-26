@@ -33,7 +33,9 @@ extension MachineStateL10n on MachineState {
 
 extension MachineErrorL10n on MachineError {
   String label(AppL10n t) => switch (this) {
-    MachineError.none => t.errUnknown,
+    // Неизвестный код — та же «ошибка устройства»: сказать про него по делу
+    // нечего, а число человек увидит рядом, в подписи под строкой.
+    MachineError.none || MachineError.unknown => t.errUnknown,
     MachineError.dryBurning => t.errDryBurning,
     MachineError.batteryOverheating => t.errBatteryOverheating,
     MachineError.heaterShortCircuit => t.errHeaterShortCircuit,
@@ -43,7 +45,7 @@ extension MachineErrorL10n on MachineError {
 
   /// Что человеку нужно сделать до следующего запуска.
   String action(AppL10n t) => switch (this) {
-    MachineError.none => t.checkAgain,
+    MachineError.none || MachineError.unknown => t.checkAgain,
     MachineError.dryBurning => t.faultAddWater,
     MachineError.batteryOverheating => t.faultCoolDown,
     MachineError.heaterShortCircuit => t.faultService,
