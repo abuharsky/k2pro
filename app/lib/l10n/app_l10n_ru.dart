@@ -10,7 +10,10 @@ class AppL10nRu extends AppL10n {
   AppL10nRu([String locale = 'ru']) : super(locale);
 
   @override
-  String get appTitle => 'K2 Pro';
+  String get appTitle => 'BetterCup';
+
+  @override
+  String get demoMachineName => 'K2 Pro';
 
   @override
   String get connected => 'На связи';

@@ -1,4 +1,4 @@
-# K2 Pro — минимальный клиент кофемашины
+# BetterCup — минимальный клиент кофемашины
 
 Flutter-приложение для Timeyaa PCM03 / K2 Pro поверх реконструированного
 BLE-протокола (см. [`../docs/happygo-ble-protocol.md`](../docs/happygo-ble-protocol.md)).

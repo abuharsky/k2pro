@@ -10,7 +10,10 @@ class AppL10nEn extends AppL10n {
   AppL10nEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'K2 Pro';
+  String get appTitle => 'BetterCup';
+
+  @override
+  String get demoMachineName => 'K2 Pro';
 
   @override
   String get connected => 'Connected';

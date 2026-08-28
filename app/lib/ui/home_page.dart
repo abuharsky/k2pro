@@ -647,7 +647,7 @@ class _HomePageState extends State<HomePage> {
                       // В демо имя своё: показывать над симулятором имя, которым
                       // назвали настоящую машину, значит выдавать одно за другое.
                       // Что это симулятор, говорит метка рядом, а не имя.
-                      name: demo ? t.appTitle : p.deviceName,
+                      name: demo ? t.demoMachineName : p.deviceName,
                       demo: demo,
                       connected: d.isConnected,
                       connecting: d.isSeeking,

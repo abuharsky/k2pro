@@ -100,8 +100,14 @@ abstract class AppL10n {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'K2 Pro'**
+  /// **'BetterCup'**
   String get appTitle;
+
+  /// No description provided for @demoMachineName.
+  ///
+  /// In en, this message translates to:
+  /// **'K2 Pro'**
+  String get demoMachineName;
 
   /// No description provided for @connected.
   ///

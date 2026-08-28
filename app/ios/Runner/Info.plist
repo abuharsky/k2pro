@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>K2pro</string>
+	<string>BetterCup</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -27,9 +27,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>K2 Pro connects to your coffee machine over Bluetooth.</string>
+	<string>BetterCup connects to your coffee machine over Bluetooth.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>K2 Pro connects to your coffee machine over Bluetooth.</string>
+	<string>BetterCup connects to your coffee machine over Bluetooth.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

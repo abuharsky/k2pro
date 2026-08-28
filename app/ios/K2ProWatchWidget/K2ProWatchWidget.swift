@@ -10,7 +10,7 @@ struct K2ProWatchWidget: Widget {
       WidgetView(status: entry.status)
         .containerBackground(.clear, for: .widget)
     }
-    .configurationDisplayName("K2 Pro")
+    .configurationDisplayName("BetterCup")
     .description("Статус пролива и быстрый запуск")
     .supportedFamilies([
       .accessoryRectangular, .accessoryCircular, .accessoryInline, .accessoryCorner,

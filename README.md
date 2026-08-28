@@ -1,12 +1,12 @@
 <div align="center">
 
-# ☕ K2 Pro
+# ☕ BetterCup
 
 **Своё приложение для кофемашины Cera+ iKape K2 Pro — и приложение для Apple Watch,
 с которого её можно запустить и перенастроить, не доставая телефон.**
 
-*A hand-built iOS app for the Cera+ iKape K2 Pro espresso machine — plus an Apple Watch
-app that starts it and tunes the recipe right from your wrist.*
+*BetterCup — a hand-built iOS app for the Cera+ iKape K2 Pro espresso machine, plus an
+Apple Watch app that starts it and tunes the recipe right from your wrist.*
 
 [**Русский**](#русский) · [**English**](#english)
 

@@ -1,4 +1,4 @@
-# K2 Pro — iOS release automation.
+# BetterCup — iOS release automation.
 #
 # The whole point: a git tag triggers a signed build that lands on TestFlight
 # with nobody touching a keyboard. Promotion to the public App Store stays a
